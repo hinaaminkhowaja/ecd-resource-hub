@@ -263,10 +263,10 @@ function ReceiptDialog({ initial, onClose, onSave }) {
   const [stage, setStage] = useState(initial ? (initial.stage ?? 4) : 0);
   const [form, setForm] = useState(() => ({
     resourceCategory: 'Ibtida Guidebook', resourceName: 'Ibtida Guidebook',
-    dispatchReference: '', headOfficeDispatchDate: today, headOfficeDispatchQuantity: '', headOfficeDispatchedBy: '', headOfficeSenderEmail: '', regionDispatchReceiverEmail: '', headOfficeExtraEmails: '',
-    region: '', regionReceivedDate: '', regionReceivedQuantity: '', regionReceivedBy: '', regionSenderEmail: '', regionReceiptExtraEmails: '', regionReceiptDeadline: '',
-    localBoard: '', recName: '', recDispatchDate: '', forwardedQuantity: '', regionDispatchedBy: '', regionDispatchSenderEmail: '', recDispatchReceiverEmail: '', regionDispatchExtraEmails: '', regionDispatchDeadline: '',
-    recReceivedDate: '', recReceivedQuantity: '', recReceivedName: '', recReceivedDesignation: '', recAcknowledgement: '', recReceiptReceiverEmail: '', recReceiptExtraEmails: '', recReceiptDeadline: '', notes: '', timeline: [],
+    dispatchReference: '', headOfficeDispatchDate: today, headOfficeDispatchQuantity: '', headOfficeDispatchedBy: '',
+    region: '', regionReceivedDate: '', regionReceivedQuantity: '', regionReceivedBy: '', regionReceiptDeadline: '',
+    localBoard: '', recName: '', recDispatchDate: '', forwardedQuantity: '', regionDispatchedBy: '', regionDispatchDeadline: '',
+    recReceivedDate: '', recReceivedQuantity: '', recReceivedName: '', recReceivedDesignation: '', recAcknowledgement: '', recReceiptDeadline: '', notes: '', timeline: [],
     ...initial,
   }));
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === form.region).map((row) => row.localBoard))].sort(), [form.region]);
