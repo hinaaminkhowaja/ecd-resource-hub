@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowDownToLine, BookOpen, Boxes, ChevronDown, CircleHelp,
+  ArrowDownToLine, BookOpen, Boxes, CalendarPlus, ChevronDown, CircleHelp,
   FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
   Settings2, Shapes, Sofa, Sparkles, Trash2, UsersRound, X,
 } from 'lucide-react';
@@ -54,6 +54,35 @@ function localDateString() {
   const date = new Date();
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 10);
+}
+
+function escapeCalendarText(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+}
+
+function downloadCalendarReminder(receipt, stageNumber, label, deadline) {
+  const date = deadline.replaceAll('-', '');
+  const title = `${receipt.resourceName || 'ECD resource'} · ${label}`;
+  const description = `Receipt ${receipt.id} is due on ${deadline}. Region: ${receipt.region || 'not specified'}. REC: ${receipt.recName || 'not specified'}. Open ECD Resource Hub to update the receipt.`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const reminder = escapeCalendarText(title);
+  const calendar = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ECD Resource Hub//Receipt Reminders//EN', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT', `UID:${receipt.id}-stage-${stageNumber}@ecd-resource-hub`, `DTSTAMP:${stamp}`,
+    `DTSTART:${date}T090000`, `DTEND:${date}T091500`, `SUMMARY:${reminder}`,
+    `DESCRIPTION:${escapeCalendarText(description)}`,
+    'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${reminder} is due tomorrow`, 'END:VALARM',
+    'BEGIN:VALARM', 'TRIGGER:-PT15M', 'ACTION:DISPLAY', `DESCRIPTION:${reminder} is due soon`, 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR', '',
+  ].join('\\r\\n');
+  const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${String(receipt.id).replace(/[^a-z0-9-_]/gi, '-')}-stage-${stageNumber}-reminder.ics`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function App() {
@@ -362,7 +391,7 @@ function ReceiptTimeline({ receipt, onRetry }) {
     const overdue = !event && deadline && deadline < today;
     const acknowledgement = event?.acknowledgement === 'not-received' ? ' · Not received' : event?.acknowledgement === 'received-after-deadline' ? ' · Received after deadline' : event?.acknowledgement === 'received-within-deadline' ? ' · Received within deadline' : '';
     const emailTargets = event?.emailedTo?.join(', ') || event?.notifyEmails?.join(', ') || [event?.senderEmail, event?.receiverEmail].filter(Boolean).join(', ');
-    return <div className={`timeline-event stage-${index + 1} ${overdue ? 'overdue' : ''}`} key={label}><span className="timeline-marker">{event ? '✓' : index + 1}</span><div><b>{label}</b><small>{event ? `${event.senderEmail ? `From ${event.senderEmail} · ` : ''}To ${emailTargets || event.receiverEmail} · Completed ${new Date(event.completedAt).toLocaleString()}${acknowledgement} · Email ${event.emailStatus || 'not connected'}` : `Due ${deadline || 'not set'} · ${overdue ? 'OVERDUE' : deadline === today ? 'DUE TODAY' : 'Pending'}`}</small>{event && event.emailStatus !== 'sent' && (event.notifyEmails?.length || event.receiverEmail) && onRetry && <button type="button" className="timeline-retry" onClick={() => onRetry(index + 1)}>Retry email to contacts</button>}</div></div>;
+    return <div className={`timeline-event stage-${index + 1} ${overdue ? 'overdue' : ''}`} key={label}><span className="timeline-marker">{event ? '✓' : index + 1}</span><div><b>{label}</b><small>{event ? `${event.senderEmail ? `From ${event.senderEmail} · ` : ''}To ${emailTargets || event.receiverEmail} · Completed ${new Date(event.completedAt).toLocaleString()}${acknowledgement} · Email ${event.emailStatus || 'not connected'}` : `Due ${deadline || 'not set'} · ${overdue ? 'OVERDUE' : deadline === today ? 'DUE TODAY' : 'Pending'}`}</small>{!event && deadline && !overdue && <button type="button" className="calendar-reminder-button" onClick={() => downloadCalendarReminder(receipt, index + 1, label, deadline)}><CalendarPlus size={13} />Add to calendar</button>}{event && event.emailStatus !== 'sent' && (event.notifyEmails?.length || event.receiverEmail) && onRetry && <button type="button" className="timeline-retry" onClick={() => onRetry(index + 1)}>Retry email to contacts</button>}</div></div>;
   })}{(receipt.timeline || []).filter((event) => event.kind === 'reminder').map((event, index) => <div className="timeline-event overdue" key={`reminder-${event.stage}-${event.reminderDate || index}`}><span className="timeline-marker">!</span><div><b>{event.event}</b><small>To {event.emailedTo?.join(', ') || event.notifyEmails?.join(', ') || [event.senderEmail, event.receiverEmail].filter(Boolean).join(', ')} · {event.reminderDate || new Date(event.completedAt).toLocaleString()} · Email {event.emailStatus || 'pending'}</small></div></div>)}</section>;
 }
 
