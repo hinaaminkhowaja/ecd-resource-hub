@@ -74,7 +74,7 @@ function downloadCalendarReminder(receipt, stageNumber, label, deadline) {
     'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${reminder} is due tomorrow`, 'END:VALARM',
     'BEGIN:VALARM', 'TRIGGER:-PT15M', 'ACTION:DISPLAY', `DESCRIPTION:${reminder} is due soon`, 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR', '',
-  ].join('\\r\\n');
+  ].join('\r\n');
   const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
