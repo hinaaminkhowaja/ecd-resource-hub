@@ -15,3 +15,5 @@
 
 .delivery-workflow-item{display:grid;gap:10px;padding:12px;border:1px solid #e4e9e4;border-radius:15px;background:#fff;box-shadow:0 5px 16px rgba(48,70,48,.04)}.delivery-workflow-item .history-row{width:100%;padding:8px 10px;border:0;border-radius:9px;background:#fbfcfa}.delivery-workflow-item .history-row:hover{background:#f4f8f3}.delivery-workflow-item .receipt-timeline{margin:0;padding:13px 14px;border:0;background:#fafbf9}.dashboard-delivery-history .history-list{gap:12px}
 
+
+.calendar-reminder-button{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:5px 8px;border:1px solid #bfd2e7;border-radius:7px;background:#fff;color:#315c83;font-size:10px;font-weight:700;cursor:pointer}.calendar-reminder-button:hover{background:#edf5ff}@media print{.calendar-reminder-button{display:none!important}}
