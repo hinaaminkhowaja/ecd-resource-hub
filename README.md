@@ -6,16 +6,32 @@ A React dashboard for ECD resource records and staged delivery receipts.
 
 After pulling updates, run `npm install`, then `npm run dev`. The command starts the dashboard and the private receipt service together. Vite forwards the dashboard on port 5173.
 
-## Enable email notifications
+## Send notifications with Power Automate
 
-1. Copy `.env.example` to `.env`.
-2. Enter SMTP settings for the sender account. The app can use Outlook, Gmail, or another email service that provides SMTP access.
-3. Keep `.env` private. It is ignored by Git and must never be committed.
-4. Restart `npm run dev`.
+1. In Power Automate, create an **Automated cloud flow** with the **When an HTTP request is received** trigger.
+2. Use this JSON schema for the trigger:
 
-The receipt service emails both listed contacts when each handoff is completed. It checks deadlines every five minutes and emails both contacts when the next handoff is due and still pending. Reminder times use the configured `TIME_ZONE` (default `Asia/Karachi`).
+   ```json
+   {
+     "type": "object",
+     "properties": {
+       "source": { "type": "string" },
+       "recipients": { "type": "array", "items": { "type": "string" } },
+       "subject": { "type": "string" },
+       "message": { "type": "string" },
+       "sentAt": { "type": "string" }
+     },
+     "required": ["recipients", "subject", "message"]
+   }
+   ```
 
-Receipt data is saved to an ignored file in the Codespace. Automatic email and reminders run only while the Codespace is running. For reminders that continue while the Codespace is stopped, deploy the receipt service and its storage to an always-on host.
+3. Add **Office 365 Outlook – Send an email (V2)**. Set **To** to the expression `join(triggerBody()?['recipients'], ';')`, **Subject** to `subject`, and **Body** to `message` from the trigger. Save the flow and copy its HTTP POST URL.
+4. Put that URL in `.env` as `POWER_AUTOMATE_URL=...`. Treat the URL as a secret; keep `.env` private and never commit it. This setting takes priority over SMTP.
+5. Restart `npm run dev`.
+
+Each completed stage and overdue reminder is posted to the flow with the recipients selected for that stage. Power Automate sends through its connected Outlook account. The optional `POWER_AUTOMATE_KEY` can be checked in a flow condition against the `x-ecd-notification-key` request header.
+
+Reminder checks run every five minutes while the receipt service is running. Since the service currently runs in the Codespace, automatic reminder checks pause when the Codespace is stopped.
 
 ## Receipt stages
 
