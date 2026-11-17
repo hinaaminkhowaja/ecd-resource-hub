@@ -157,7 +157,7 @@ function App() {
     else setNotice(mailStatus === 'sent'
       ? `Stage ${receipt.stage} saved. Email sent to the listed contacts.`
       : mailStatus === 'not-configured'
-        ? `Stage ${receipt.stage} saved. Email sending is not configured yet.`
+        ? `Stage ${receipt.stage} saved. Email sending is not configured. Add the Power Automate flow URL or SMTP settings to .env.`
         : mailStatus === 'failed' || mailStatus === 'no-recipients'
           ? `Stage ${receipt.stage} saved, but email could not be sent. Check the sender settings and both contact addresses.`
         : `Stage ${receipt.stage} saved in this browser. The receipt service is offline, so no emails or scheduled reminders can run.`);
@@ -172,7 +172,7 @@ function App() {
       setReceipts((current) => current.map((item) => item.id === receiptId ? updated : item));
       setSelectedReceipt((current) => current?.id === receiptId ? updated : current);
       const event = updated.timeline.find((item) => item.stage === stage && item.kind !== 'reminder');
-      setNotice(event?.emailStatus === 'sent' ? 'Email sent to the listed contacts.' : 'Email still could not be sent. Check the SMTP connection and contact addresses.');
+      setNotice(event?.emailStatus === 'sent' ? 'Email sent to the listed contacts.' : 'Email still could not be sent. Check the notification settings and contact addresses.');
     } catch {
       setNotice('The receipt service is unavailable, so the email could not be retried.');
     }
