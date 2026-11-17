@@ -2,46 +2,12 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import nodemailer from 'nodemailer';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
 const port = Number(process.env.API_PORT || 3001);
 const timezone = process.env.TIME_ZONE || 'Asia/Karachi';
-const stageDetails = {
-  2: { label: 'Region receipt confirmation', deadline: 'regionReceiptDeadline', sender: 'headOfficeSenderEmail', receiver: 'regionDispatchReceiverEmail', recipients: ['headOfficeSenderEmail', 'regionDispatchReceiverEmail'], extras: 'headOfficeExtraEmails' },
-  3: { label: 'Region dispatch to REC', deadline: 'regionDispatchDeadline', sender: 'headOfficeSenderEmail', receiver: 'regionSenderEmail', recipients: ['headOfficeSenderEmail', 'regionSenderEmail'], extras: 'regionReceiptExtraEmails' },
-  4: { label: 'REC receipt confirmation', deadline: 'recReceiptDeadline', sender: 'regionDispatchSenderEmail', receiver: 'recDispatchReceiverEmail', recipients: ['headOfficeSenderEmail', 'regionDispatchSenderEmail', 'recDispatchReceiverEmail'], extras: 'regionDispatchExtraEmails' },
-};
-const stageEmailFields = {
-  1: { primary: ['headOfficeSenderEmail', 'regionDispatchReceiverEmail'], extras: 'headOfficeExtraEmails' },
-  2: { primary: ['headOfficeSenderEmail', 'regionSenderEmail'], extras: 'regionReceiptExtraEmails' },
-  3: { primary: ['headOfficeSenderEmail', 'regionDispatchSenderEmail', 'recDispatchReceiverEmail'], extras: 'regionDispatchExtraEmails' },
-  4: { primary: ['headOfficeSenderEmail', 'regionDispatchSenderEmail', 'recReceiptReceiverEmail'], extras: 'recReceiptExtraEmails' },
-};
-const stageEmailFields = {
-  1: { primary: ['headOfficeSenderEmail', 'regionDispatchReceiverEmail'], extras: 'headOfficeExtraEmails' },
-  2: { primary: ['headOfficeSenderEmail', 'regionSenderEmail'], extras: 'regionReceiptExtraEmails' },
-  3: { primary: ['headOfficeSenderEmail', 'regionDispatchSenderEmail', 'recDispatchReceiverEmail'], extras: 'regionDispatchExtraEmails' },
-  4: { primary: ['headOfficeSenderEmail', 'regionDispatchSenderEmail', 'recReceiptReceiverEmail'], extras: 'recReceiptExtraEmails' },
-};
-
-function loadEnvFile() {
-  return readFile(path.join(root, '.env'), 'utf8').then((raw) => {
-    for (const line of raw.split(/\r?\n/)) {
-      const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '');
-    }
-  }).catch(() => {});
-}
-
-function currentLocalDate() {
-  const parts = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
 async function readReceipts() {
   try {
     const rows = JSON.parse(await readFile(storePath, 'utf8'));
@@ -56,79 +22,17 @@ async function writeReceipts(rows) {
   await writeFile(storePath, JSON.stringify(rows, null, 2), 'utf8');
 }
 
-function makeTransport() {
-  if (process.env.SMTP_URL) return nodemailer.createTransport(process.env.SMTP_URL);
-  if (!process.env.SMTP_HOST || !process.env.SMTP_FROM) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' } : undefined,
-  });
+function removeEmailMetadata(receipt) {
+  const { reminderEvents, ...record } = receipt;
+  record.timeline = (Array.isArray(receipt.timeline) ? receipt.timeline : [])
+    .filter((event) => event.kind !== 'reminder')
+    .map((event) => {
+      const { senderEmail, receiverEmail, notifyEmails, emailedTo, emailStatus, emailError, ...stageEvent } = event;
+      return stageEvent;
+    });
+  return record;
 }
 
-function safeText(value) {
-  return String(value || '').replace(/[<>]/g, '');
-}
-
-async function sendMessage(recipients, subject, text) {
-  const to = [...new Set(recipients.map((email) => String(email || '').trim()).filter(Boolean))];
-  if (!to.length) return { status: 'no-recipients', recipients: [] };
-  if (to.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { status: 'invalid-recipients', recipients: to };
-
-  if (process.env.POWER_AUTOMATE_URL) {
-    try {
-      const response = await fetch(process.env.POWER_AUTOMATE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(process.env.POWER_AUTOMATE_KEY ? { 'x-ecd-notification-key': process.env.POWER_AUTOMATE_KEY } : {}) },
-        body: JSON.stringify({ source: 'ECD Resource Hub', recipients: to, subject, message: text, sentAt: new Date().toISOString() }),
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!response.ok) return { status: 'failed', recipients: to, errorCode: `FLOW_HTTP_${response.status}` };
-      return { status: 'sent', recipients: to };
-    } catch (error) {
-      console.error('Power Automate notification failed:', error.message);
-      return { status: 'failed', recipients: to, errorCode: error.name === 'TimeoutError' ? 'FLOW_TIMEOUT' : 'FLOW_CONNECTION_ERROR' };
-    }
-  }
-  const transport = makeTransport();
-  if (!transport || !process.env.SMTP_FROM) return { status: 'not-configured', recipients: to };
-  try {
-    await transport.sendMail({ from: process.env.SMTP_FROM, to: to.join(', '), subject, text });
-    return { status: 'sent', recipients: to };
-  } catch (error) {
-    console.error('Email delivery failed:', error.message);
-    return { status: 'failed', recipients: to, errorCode: error.code || error.responseCode || 'SMTP_ERROR' };
-  }
-}
-function receiptSummary(receipt) {
-  return [
-    `Resource: ${safeText(receipt.resourceName)} (${safeText(receipt.resourceCategory)})`,
-    `Receipt: ${safeText(receipt.id)}`,
-    `Region: ${safeText(receipt.region)}`,
-    `Local Board: ${safeText(receipt.localBoard)}`,
-    `REC: ${safeText(receipt.recName)}`,
-    `Head Office quantity: ${safeText(receipt.headOfficeDispatchQuantity)}`,
-    `Region quantity: ${safeText(receipt.regionReceivedQuantity)}`,
-    `REC quantity: ${receipt.recAcknowledgement === 'not-received' ? 'Not received' : safeText(receipt.recReceivedQuantity || receipt.forwardedQuantity)}`,
-    `REC acknowledgement: ${safeText(receipt.recAcknowledgement)}`,
-    `REC receiver: ${safeText(receipt.recReceivedName)} · ${safeText(receipt.recReceivedDesignation)}`,
-  ].join('\n');
-}
-
-async function sendStageEmail(receipt, event) {
-  const fields = stageEmailFields[Number(event.stage)];
-  const mappedRecipients = fields
-    ? [...fields.primary.map((key) => receipt[key]), ...String(receipt[fields.extras] || '').split(/[;,\s]+/)]
-      .map((email) => String(email || '').trim()).filter(Boolean)
-    : [];
-  const result = await sendMessage(
-    mappedRecipients.length ? mappedRecipients : (event.notifyEmails?.length ? event.notifyEmails : [event.senderEmail, event.receiverEmail]),
-    `${receipt.resourceName || 'ECD resource'} · ${event.event} · ${receipt.id}`,
-    `${event.event}\n\n${receiptSummary(receipt)}\n\nDeadline for the next handoff: ${event.deadline || 'not set'}\nCompleted: ${new Date(event.completedAt).toLocaleString('en-US', { timeZone: timezone })}\n\nThis email was generated by the ECD Resource Hub.`,
-  );
-  return { ...event, emailStatus: result.status, emailError: result.errorCode, emailedTo: result.recipients };
-}
 async function saveReceipt(receipt) {
   if (!receipt?.id || !Number.isInteger(Number(receipt.stage)) || Number(receipt.stage) < 1 || Number(receipt.stage) > 4) {
     return { error: 'Receipt details are incomplete.' };
@@ -136,78 +40,12 @@ async function saveReceipt(receipt) {
   const rows = await readReceipts();
   const existingIndex = rows.findIndex((row) => row.id === receipt.id);
   const existing = existingIndex >= 0 ? rows[existingIndex] : null;
-  const timeline = Array.isArray(receipt.timeline) ? [...receipt.timeline] : [];
-  const completedEvent = [...timeline].reverse().find((event) => event.stage === Number(receipt.stage) && event.kind !== 'reminder');
-  let next = { ...existing, ...receipt, timeline, reminderEvents: existing?.reminderEvents || [] };
-
-  if (completedEvent && !existing?.notifiedStages?.includes(Number(receipt.stage))) {
-    const emailedEvent = await sendStageEmail(next, completedEvent);
-    const eventIndex = timeline.findIndex((event) => event === completedEvent || (event.stage === completedEvent.stage && event.completedAt === completedEvent.completedAt));
-    if (eventIndex >= 0) timeline[eventIndex] = emailedEvent;
-    next = { ...next, timeline, notifiedStages: emailedEvent.emailStatus === 'sent'
-      ? [...new Set([...(existing?.notifiedStages || []), Number(receipt.stage)])]
-      : (existing?.notifiedStages || []) };
-  }
-
+  const next = removeEmailMetadata({ ...existing, ...receipt, timeline: receipt.timeline || [] });
   next.updatedAt = new Date().toISOString();
   if (existingIndex >= 0) rows[existingIndex] = next;
   else rows.unshift(next);
   await writeReceipts(rows);
   return { receipt: next };
-}
-
-async function retryStageEmail(receiptId, stage) {
-  const rows = await readReceipts();
-  const index = rows.findIndex((row) => row.id === receiptId);
-  if (index < 0) return { error: 'Receipt not found.' };
-  const receipt = rows[index];
-  const eventIndex = (receipt.timeline || []).findIndex((event) => event.stage === stage && event.kind !== 'reminder');
-  if (eventIndex < 0) return { error: 'Completed handoff not found.' };
-  const event = await sendStageEmail(receipt, receipt.timeline[eventIndex]);
-  const timeline = [...receipt.timeline];
-  timeline[eventIndex] = event;
-  receipt.timeline = timeline;
-  if (event.emailStatus === 'sent') receipt.notifiedStages = [...new Set([...(receipt.notifiedStages || []), stage])];
-  receipt.updatedAt = new Date().toISOString();
-  rows[index] = receipt;
-  await writeReceipts(rows);
-  return { receipt };
-}
-
-async function sendOverdueReminders() {
-  const today = currentLocalDate();
-  const rows = await readReceipts();
-  let changed = false;
-  for (const receipt of rows) {
-    const nextStage = Number(receipt.stage) + 1;
-    const details = stageDetails[nextStage];
-    if (!details || !receipt[details.deadline] || receipt[details.deadline] > today) continue;
-    const sentToday = (receipt.reminderEvents || []).some((event) => event.stage === nextStage && event.reminderDate === today);
-    if (sentToday) continue;
-    const reminderRecipients = [...details.recipients.map((key) => receipt[key]), ...String(receipt[details.extras] || '').split(/[;,\s]+/)];
-    const reminder = {
-      stage: nextStage,
-      kind: 'reminder',
-      event: `Overdue reminder · ${details.label}`,
-      deadline: receipt[details.deadline],
-      senderEmail: receipt[details.sender],
-      receiverEmail: receipt[details.receiver],
-      notifyEmails: reminderRecipients.filter(Boolean),
-      completedAt: new Date().toISOString(),
-      reminderDate: today,
-    };
-    const result = await sendMessage(
-      reminder.notifyEmails,
-      `Overdue · ${receipt.resourceName || 'ECD resource'} · ${details.label} · ${receipt.id}`,
-      `${details.label} is due and this receipt has not yet advanced to that stage.\n\n${receiptSummary(receipt)}\n\nDeadline: ${reminder.deadline}\nPlease update the receipt in the ECD Resource Hub.`,
-    );
-    reminder.emailStatus = result.status;
-    reminder.emailedTo = result.recipients;
-    receipt.reminderEvents = [...(receipt.reminderEvents || []), reminder];
-    receipt.timeline = [...(receipt.timeline || []), reminder];
-    changed = true;
-  }
-  if (changed) await writeReceipts(rows);
 }
 
 function readRequest(request) {
@@ -224,7 +62,6 @@ function readRequest(request) {
   });
 }
 
-await loadEnvFile();
 const server = http.createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   if (request.method === 'GET' && request.url === '/api/receipts') {
@@ -243,24 +80,9 @@ const server = http.createServer(async (request, response) => {
     }
     return;
   }
-  const retryMatch = request.url.match(/^\/api\/receipts\/([^/]+)\/retry-email$/);
-  if (request.method === 'POST' && retryMatch) {
-    try {
-      const body = await readRequest(request);
-      const result = await retryStageEmail(decodeURIComponent(retryMatch[1]), Number(body.stage));
-      if (result.error) { response.statusCode = 404; response.end(JSON.stringify(result)); return; }
-      response.end(JSON.stringify(result));
-    } catch (error) {
-      response.statusCode = 400;
-      response.end(JSON.stringify({ error: error.message }));
-    }
-    return;
-  }
   response.statusCode = 404;
   response.end(JSON.stringify({ error: 'Not found.' }));
 });
 
 server.listen(port, '127.0.0.1', () => console.log(`Receipt service listening on 127.0.0.1:${port}`));
-setTimeout(() => sendOverdueReminders().catch((error) => console.error('Reminder check failed:', error.message)), 5_000);
-setInterval(() => sendOverdueReminders().catch((error) => console.error('Reminder check failed:', error.message)), 5 * 60_000);
 
