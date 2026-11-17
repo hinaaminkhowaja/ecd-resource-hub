@@ -198,10 +198,10 @@ function ReceiptDialog({ initial, onClose, onSave }) {
   const today = new Date().toISOString().slice(0, 10);
   const [stage, setStage] = useState(initial ? (initial.stage ?? 4) : 0);
   const [form, setForm] = useState(() => ({
-    dispatchReference: '', headOfficeDispatchDate: today, headOfficeDispatchQuantity: '', headOfficeDispatchedBy: '',
-    region: '', regionReceivedDate: '', regionReceivedQuantity: '', regionReceivedBy: '',
-    localBoard: '', recName: '', recDispatchDate: '', forwardedQuantity: '', regionDispatchedBy: '',
-    recReceivedDate: '', recReceivedQuantity: '', recReceivedBy: '', notes: '',
+    dispatchReference: '', headOfficeDispatchDate: today, headOfficeDispatchQuantity: '', headOfficeDispatchedBy: '', headOfficeNotifyEmail: '',
+    region: '', regionReceivedDate: '', regionReceivedQuantity: '', regionReceivedBy: '', regionNotifyEmail: '',
+    localBoard: '', recName: '', recDispatchDate: '', forwardedQuantity: '', regionDispatchedBy: '', recNotifyEmail: '',
+    recReceivedDate: '', recReceivedQuantity: '', recReceivedBy: '', finalNotifyEmail: '', notes: '', timeline: [],
     ...initial,
   }));
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === form.region).map((row) => row.localBoard))].sort(), [form.region]);
@@ -226,7 +226,10 @@ function ReceiptDialog({ initial, onClose, onSave }) {
     if (stage === 1) next.regionReceivedQuantity = Number(form.regionReceivedQuantity);
     if (stage === 2) next.forwardedQuantity = Number(form.forwardedQuantity);
     if (stage === 3) next.recReceivedQuantity = Number(form.recReceivedQuantity);
-    onSave({ ...next, stage: stage + 1 }, initial?.id);
+    const timelineNames = ['Head Office dispatched guidebooks to the region', 'Region confirmed receipt from Head Office', 'Region dispatched guidebooks to the REC', 'REC confirmed receipt from the region'];
+    const notifyEmails = [form.headOfficeNotifyEmail, form.regionNotifyEmail, form.recNotifyEmail, form.finalNotifyEmail];
+    const timeline = [...(form.timeline || []), { stage: stage + 1, event: timelineNames[stage], email: notifyEmails[stage], completedAt: new Date().toISOString() }];
+    onSave({ ...next, timeline, stage: stage + 1 }, initial?.id);
   }
 
   return <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -234,27 +237,30 @@ function ReceiptDialog({ initial, onClose, onSave }) {
       <div className="dialog-heading"><div><div className="eyebrow">CURRICULUM · IBTIDA GUIDEBOOK</div><h2 id="receipt-dialog-title">{initial ? 'Continue acknowledgement' : 'New acknowledgement'}</h2><p className="dialog-subtitle">Complete each handoff when it happens. Save a stage now and continue later.</p></div><button className="dialog-close" onClick={onClose} aria-label="Close"><X size={18} /></button></div>
       <form onSubmit={submit}>
         <div className="receipt-stepper">{stepNames.map((name, index) => <div key={name} className={`receipt-step ${index === stage ? 'current' : index < stage ? 'done' : ''}`}><span>{index < stage ? '✓' : `0${index + 1}`}</span><small>{name}</small></div>)}</div>
+        <div className="receipt-email-info"><b>Email recipient and activity timeline</b><span>Add the contact email for each handoff. Completed stages are timestamped below and on the printable receipt. Automatic email delivery will begin once a secure sender account is connected.</span></div>
+        {form.timeline?.length > 0 && <section className="receipt-timeline form-timeline"><h3>Completed handoffs</h3>{form.timeline.map((event, index) => <div className="timeline-event" key={`${event.stage}-${event.completedAt || index}`}><span className="timeline-marker">{index + 1}</span><div><b>{event.event}</b><small>{event.email ? `${event.email} · ` : ''}{new Date(event.completedAt).toLocaleString()}</small></div></div>)}</section>}
         <div className="receipt-section-title"><span>0{stage + 1}</span><div><b>{stepNames[stage]}</b><small>{['Record the shipment sent from Head Office.', 'Confirm what the regional office received.', 'Select an REC and record the regional shipment.', 'Confirm what the REC received.'][stage]}</small></div></div>
         {stage === 0 && <>
           <div className="form-row"><label className="form-field">Dispatch reference<input maxLength={80} value={form.dispatchReference} onChange={(event) => update('dispatchReference', event.target.value)} placeholder="Optional reference number" /></label><label className="form-field">Dispatch date<input type="date" required value={form.headOfficeDispatchDate} onChange={(event) => update('headOfficeDispatchDate', event.target.value)} /></label></div>
           <label className="form-field">Destination region<select required value={form.region} onChange={(event) => setForm((current) => ({ ...current, region: event.target.value, localBoard: '', recName: '' }))}><option value="">Select a region</option>{regions.map((region) => <option key={region}>{region}</option>)}</select></label>
           <div className="form-row"><label className="form-field">Guidebooks dispatched<input type="number" required min="1" step="1" value={form.headOfficeDispatchQuantity} onChange={(event) => update('headOfficeDispatchQuantity', event.target.value)} placeholder="Quantity" /></label><label className="form-field">Dispatched by<input required maxLength={100} value={form.headOfficeDispatchedBy} onChange={(event) => update('headOfficeDispatchedBy', event.target.value)} placeholder="Name and designation" /></label></div>
+          <label className="form-field">Regional contact email<input type="email" required value={form.headOfficeNotifyEmail} onChange={(event) => update('headOfficeNotifyEmail', event.target.value)} placeholder="region@example.org" /></label>
         </>}
         {stage === 1 && <>
           <label className="form-field">Region<input readOnly value={form.region} /></label>
           <div className="form-row"><label className="form-field">Date received at region<input type="date" required value={form.regionReceivedDate} onChange={(event) => update('regionReceivedDate', event.target.value)} /></label><label className="form-field">Guidebooks received<input type="number" required min="1" step="1" max={form.headOfficeDispatchQuantity || undefined} value={form.regionReceivedQuantity} onChange={(event) => update('regionReceivedQuantity', event.target.value)} placeholder="Quantity" /></label></div>
-          <label className="form-field">Received by at regional office<input required maxLength={100} value={form.regionReceivedBy} onChange={(event) => update('regionReceivedBy', event.target.value)} placeholder="Name and designation" /></label>
+          <div className="form-row"><label className="form-field">Received by at regional office<input required maxLength={100} value={form.regionReceivedBy} onChange={(event) => update('regionReceivedBy', event.target.value)} placeholder="Name and designation" /></label><label className="form-field">Head Office contact email<input type="email" required value={form.regionNotifyEmail} onChange={(event) => update('regionNotifyEmail', event.target.value)} placeholder="headoffice@example.org" /></label></div>
         </>}
         {stage === 2 && <>
           <label className="form-field">Local Board<select required value={form.localBoard} onChange={(event) => setForm((current) => ({ ...current, localBoard: event.target.value, recName: '' }))}><option value="">Select a local board</option>{boardOptions.map((board) => <option key={board}>{board}</option>)}</select></label>
           <label className="form-field">REC<select required disabled={!form.localBoard} value={form.recName} onChange={(event) => update('recName', event.target.value)}><option value="">{form.localBoard ? 'Select an REC' : 'Select a local board first'}</option>{recOptions.map((row) => <option key={row.recName}>{row.recName}</option>)}</select></label>
           <div className="form-row"><label className="form-field">Dispatch date to REC<input type="date" required value={form.recDispatchDate} onChange={(event) => update('recDispatchDate', event.target.value)} /></label><label className="form-field">Guidebooks dispatched<input type="number" required min="1" step="1" max={form.regionReceivedQuantity || undefined} value={form.forwardedQuantity} onChange={(event) => update('forwardedQuantity', event.target.value)} placeholder="Quantity" /></label></div>
-          <label className="form-field">Dispatched by at regional office<input required maxLength={100} value={form.regionDispatchedBy} onChange={(event) => update('regionDispatchedBy', event.target.value)} placeholder="Name and designation" /></label>
+          <div className="form-row"><label className="form-field">Dispatched by at regional office<input required maxLength={100} value={form.regionDispatchedBy} onChange={(event) => update('regionDispatchedBy', event.target.value)} placeholder="Name and designation" /></label><label className="form-field">REC contact email<input type="email" required value={form.recNotifyEmail} onChange={(event) => update('recNotifyEmail', event.target.value)} placeholder="rec@example.org" /></label></div>
         </>}
         {stage === 3 && <>
           <div className="form-row"><label className="form-field">Region<input readOnly value={form.region} /></label><label className="form-field">REC<input readOnly value={form.recName} /></label></div>
           <div className="form-row"><label className="form-field">Date received at REC<input type="date" required value={form.recReceivedDate} onChange={(event) => update('recReceivedDate', event.target.value)} /></label><label className="form-field">Guidebooks received<input type="number" required min="1" step="1" max={form.forwardedQuantity || undefined} value={form.recReceivedQuantity} onChange={(event) => update('recReceivedQuantity', event.target.value)} placeholder="Quantity" /></label></div>
-          <label className="form-field">Received by at REC<input required maxLength={100} value={form.recReceivedBy} onChange={(event) => update('recReceivedBy', event.target.value)} placeholder="Name and designation" /></label>
+          <div className="form-row"><label className="form-field">Received by at REC<input required maxLength={100} value={form.recReceivedBy} onChange={(event) => update('recReceivedBy', event.target.value)} placeholder="Name and designation" /></label><label className="form-field">Regional contact email<input type="email" required value={form.finalNotifyEmail} onChange={(event) => update('finalNotifyEmail', event.target.value)} placeholder="region@example.org" /></label></div>
           <label className="form-field">Notes<textarea rows="2" maxLength="300" value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Optional delivery notes or condition" /></label>
         </>}
         {quantityError && <p className="form-error">{quantityError}</p>}
@@ -284,8 +290,11 @@ function ReceiptPreview({ receipt, onClose }) {
           <tr><th>Region dispatch date</th><td>{receipt.recDispatchDate}</td><th>Quantity sent to REC</th><td>{receipt.forwardedQuantity}</td></tr>
           <tr><th>Regional dispatcher</th><td>{receipt.regionDispatchedBy}</td><th>REC received date</th><td>{receipt.recReceivedDate}</td></tr>
           <tr><th>REC quantity received</th><td>{receipt.recReceivedQuantity}</td><th>REC recipient</th><td>{receipt.recReceivedBy}</td></tr>
+          <tr><th>Regional contact email</th><td>{receipt.headOfficeNotifyEmail || '—'}</td><th>Head Office email</th><td>{receipt.regionNotifyEmail || '—'}</td></tr>
+          <tr><th>REC contact email</th><td>{receipt.recNotifyEmail || '—'}</td><th>Regional contact email</th><td>{receipt.finalNotifyEmail || '—'}</td></tr>
           {receipt.notes && <tr><th>Notes</th><td colSpan="3">{receipt.notes}</td></tr>}
         </tbody></table>
+        <section className="receipt-timeline"><h3>Delivery timeline</h3>{(receipt.timeline || []).map((event, index) => <div className="timeline-event" key={`${event.stage}-${event.completedAt || index}`}><span className="timeline-marker">{index + 1}</span><div><b>{event.event}</b><small>{event.email ? `Notification address: ${event.email} · ` : ''}{new Date(event.completedAt).toLocaleString()}</small></div></div>)}</section>
         <p className="receipt-confirmation">The named officers confirm dispatch and receipt quantities recorded for each handoff.</p>
         <div className="signature-grid"><div><span></span><b>Head Office dispatch officer</b><small>Name, signature, date</small></div><div><span></span><b>Regional receiving officer</b><small>Name, signature, date</small></div><div><span></span><b>Regional dispatch officer</b><small>Name, signature, date</small></div><div><span></span><b>REC receiving officer</b><small>Name, signature, date</small></div></div>
         <div className="receipt-footer">Generated in the ECD Resource Hub · {new Date(receipt.createdAt).toLocaleDateString()}</div>
