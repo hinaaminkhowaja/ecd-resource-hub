@@ -11,7 +11,7 @@ import './receipts.css';
 const RESOURCE_STORAGE_KEY = 'ecd-resource-hub.resources';
 const RECEIPT_STORAGE_KEY = 'ecd-resource-hub.ibtida-receipts';
 const SYSTEM_RESOURCE_ID = 'ibtida-guidebook';
-const receiptCategories = ['Curriculum', 'Activity Books', 'Plans', 'Furniture', 'Resource Kits'];
+const receiptCategories = ['Ibtida Guidebook', 'Curriculum', 'Activity Books', 'Plans', 'Furniture', 'Resource Kits'];
 
 const categories = [
   { name: 'All resources', icon: LibraryBig },
@@ -66,6 +66,7 @@ function App() {
   const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptDialogInstance, setReceiptDialogInstance] = useState(0);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
@@ -123,7 +124,7 @@ function App() {
     setNotice('Resource deleted.');
   }
 
-  async function saveReceipt(form, existingId) {
+  async function saveReceipt(form, existingId, createAnother = false) {
     const existing = receipts.find((item) => item.id === existingId);
     let receipt = {
       ...existing,
@@ -147,7 +148,12 @@ function App() {
       : [receipt, ...current]);
     setReceiptDialogOpen(false);
     setEditingReceipt(null);
-    if (receipt.stage === 4) setSelectedReceipt(receipt);
+    if (createAnother) {
+      setReceiptDialogInstance((current) => current + 1);
+      setSelectedReceipt(null);
+      setReceiptDialogOpen(true);
+      setNotice(`Receipt ${receipt.id} saved. You can continue its next stage later.`);
+    } else if (receipt.stage === 4) setSelectedReceipt(receipt);
     else setNotice(mailStatus === 'sent'
       ? `Stage ${receipt.stage} saved. Email sent to both contacts.`
       : mailStatus === 'not-configured'
@@ -195,8 +201,9 @@ function App() {
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb">RECS collection <span>/</span> <b>{active}</b></div><div className="top-actions"><span className="online-dot"></span><span className="connection-text">Library workspace</span><button className="help-button" onClick={() => setNotice('Create a delivery receipt for curriculum, activity books, plans, furniture, or resource kits.')}>?</button></div></header>
       <div className="content">
-        <section className="welcome-row"><div><div className="eyebrow">EARLY CHILDHOOD DEVELOPMENT</div><h1>Resources for every <em>little learner.</em></h1><p className="intro">Your RECS collection of ECD materials, teaching guides, and classroom essentials.</p><button className="add-resource-button dashboard-receipt-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}><FileText size={16} />New delivery receipt</button></div><div className="welcome-art" aria-hidden="true"><span className="sun"></span><span className="arch"><i></i><b></b><small></small></span><span className="plant">✳</span><span className="book-stack"><i></i><b></b><small></small></span></div></section>
+        <section className="welcome-row"><div><div className="eyebrow">EARLY CHILDHOOD DEVELOPMENT</div><h1>Resources for every <em>little learner.</em></h1><p className="intro">Your RECS collection of ECD materials, teaching guides, and classroom essentials.</p></div><div className="welcome-art" aria-hidden="true"><span className="sun"></span><span className="arch"><i></i><b></b><small></small></span><span className="plant">✳</span><span className="book-stack"><i></i><b></b><small></small></span></div></section>
         <section className="stats-row"><div className="stat-card"><span className="stat-icon mint-icon"><LibraryBig size={19} /></span><div><b>{allResources.length}</b><small>resources in library</small></div></div><div className="stat-card"><span className="stat-icon peach-icon"><UsersRound size={19} /></span><div><b>{categories.length - 1}</b><small>resource collections</small></div></div><div className="stat-note"><span className="note-star">✳</span><span><b>Made for curious minds</b><small>Manage ECD materials and track delivery handoffs.</small></span></div></section>
+        <section className="dashboard-receipt-launch"><div className="receipt-launch-copy"><span className="receipt-launch-icon"><FileText size={23} /></span><div><div className="eyebrow">DELIVERY RECEIPTS</div><h2>Track ECD resource deliveries</h2><p>Create a receipt for guidebooks, activity books, plans, furniture, and resource kits.</p></div></div><button className="receipt-launch-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}><Plus size={17} />Create a receipt</button></section>
                 {receipts.length > 0 && <section className="receipt-history dashboard-delivery-history"><div className="history-heading"><div><div className="eyebrow">DELIVERY WORKFLOW</div><h3>Recent delivery receipts</h3></div><span>{receipts.length} saved</span></div><div className="history-list">{receipts.slice(0, 5).map((receipt) => <button className="history-row" key={receipt.id} onClick={() => { if ((receipt.stage ?? 4) >= 4) setSelectedReceipt(receipt); else { setEditingReceipt(receipt); setReceiptDialogOpen(true); } }}><span><b>{receipt.resourceName || receipt.resourceCategory || 'ECD resource'}</b><small>{receipt.region}{receipt.localBoard ? ` · ${receipt.localBoard}` : ''}{receipt.recName ? ` · ${receipt.recName}` : ''}</small></span><span className="history-quantity">{(receipt.stage ?? 4) >= 4 ? `${receipt.resourceCategory || 'Resource'} · Complete` : `Continue · stage ${receipt.stage} of 4`}</span><span className="history-id">{receipt.id}</span></button>)}</div></section>}
         <section className="library-section">
           <div className="section-heading"><div><div className="eyebrow">EXPLORE THE COLLECTION</div><h2>{active}</h2></div><button className="add-resource-button" onClick={openAddResource}><Plus size={16} /> Add resource</button></div>
@@ -209,7 +216,7 @@ function App() {
       </div>
     </main>
     {resourceDialogOpen && <ResourceDialog initial={editingResource} onClose={() => { setResourceDialogOpen(false); setEditingResource(null); }} onSave={saveResource} />}
-    {receiptDialogOpen && <ReceiptDialog initial={editingReceipt} onClose={() => { setReceiptDialogOpen(false); setEditingReceipt(null); }} onSave={saveReceipt} onRetry={retryReceiptEmail} />}
+    {receiptDialogOpen && <ReceiptDialog key={`${editingReceipt?.id || 'new'}-${receiptDialogInstance}`} initial={editingReceipt} onClose={() => { setReceiptDialogOpen(false); setEditingReceipt(null); }} onSave={saveReceipt} onRetry={retryReceiptEmail} />}
     {selectedReceipt && <ReceiptPreview receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} onRetry={retryReceiptEmail} />}
     {notice && <div className="toast" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
   </div>;
@@ -251,7 +258,7 @@ function ReceiptDialog({ initial, onClose, onSave, onRetry }) {
   const today = localDateString();
   const [stage, setStage] = useState(initial ? (initial.stage ?? 4) : 0);
   const [form, setForm] = useState(() => ({
-    resourceCategory: 'Curriculum', resourceName: 'Ibtida Guidebook',
+    resourceCategory: 'Ibtida Guidebook', resourceName: 'Ibtida Guidebook',
     dispatchReference: '', headOfficeDispatchDate: today, headOfficeDispatchQuantity: '', headOfficeDispatchedBy: '', headOfficeSenderEmail: '', regionDispatchReceiverEmail: '',
     region: '', regionReceivedDate: '', regionReceivedQuantity: '', regionReceivedBy: '', regionSenderEmail: '', headOfficeReceiptReceiverEmail: '', regionReceiptDeadline: '',
     localBoard: '', recName: '', recDispatchDate: '', forwardedQuantity: '', regionDispatchedBy: '', regionDispatchSenderEmail: '', recDispatchReceiverEmail: '', regionDispatchDeadline: '',
@@ -285,17 +292,18 @@ function ReceiptDialog({ initial, onClose, onSave, onRetry }) {
     const senders = [form.headOfficeSenderEmail, form.headOfficeSenderEmail, form.regionDispatchSenderEmail, form.recReceiptSenderEmail];
     const receivers = [form.regionDispatchReceiverEmail, form.regionSenderEmail, form.recDispatchReceiverEmail, form.regionReceiptFinalEmail];
     const timeline = [...(form.timeline || []), { stage: stage + 1, event: timelineNames[stage], senderEmail: senders[stage], receiverEmail: receivers[stage], deadline: form[deadlineFields[stage]], completedAt: new Date().toISOString(), status: 'completed' }];
-    onSave({ ...next, timeline, stage: stage + 1 }, initial?.id);
+    const createAnother = event.nativeEvent.submitter?.value === 'save-and-new';
+    onSave({ ...next, timeline, stage: stage + 1 }, initial?.id, createAnother);
   }
 
   return <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="resource-dialog receipt-dialog" role="dialog" aria-modal="true" aria-labelledby="receipt-dialog-title">
       <div className="dialog-heading"><div><div className="eyebrow">ECD RESOURCE DISTRIBUTION</div><h2 id="receipt-dialog-title">{initial ? 'Continue acknowledgement' : 'New receipt'}</h2><p className="dialog-subtitle">Record sender, receiver, and deadline for every handoff.</p></div><button className="dialog-close" onClick={onClose} aria-label="Close"><X size={18} /></button></div>
       <form onSubmit={submit}>
-        <div className="receipt-stepper">{stepNames.map((name, index) => <div key={name} className={`receipt-step ${index === stage ? 'current' : index < stage ? 'done' : ''}`}><span>{index < stage ? '✓' : `0${index + 1}`}</span><small>{name}</small></div>)}</div>
+        <div className="receipt-stepper">{stepNames.map((name, index) => <div key={name} className={`receipt-step stage-${index + 1} ${index === stage ? 'current' : index < stage ? 'done' : ''}`}><span>{index < stage ? '✓' : `0${index + 1}`}</span><small>{name}</small></div>)}</div>
         <div className="receipt-email-info"><b>Email addresses and delivery timeline</b><span>Enter both sender and receiver email addresses at each handoff, plus a due date. Completed stages are timestamped below. Automatic messages and delay reminders need a connected email service and an always-on backend.</span></div>
         <ReceiptTimeline receipt={form} onRetry={(stageNumber) => initial?.id && onRetry(initial.id, stageNumber)} />
-        <div className="receipt-section-title"><span>0{stage + 1}</span><div><b>{stepNames[stage]}</b><small>{['Record the shipment sent from Head Office.', 'Confirm what the regional office received.', 'Select an REC and record the regional shipment.', 'Confirm what the REC received.'][stage]}</small></div></div>
+        <div className={`receipt-section-title stage-panel stage-panel-${stage + 1}`}><span>0{stage + 1}</span><div><b>{stepNames[stage]}</b><small>{['Record the shipment sent from Head Office.', 'Confirm what the regional office received.', 'Select an REC and record the regional shipment.', 'Confirm what the REC received.'][stage]}</small></div></div>
         {stage === 0 && <>
           <div className="form-row"><label className="form-field">Resource type<select required value={form.resourceCategory} onChange={(event) => update('resourceCategory', event.target.value)}>{receiptCategories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="form-field">Resource name<input required maxLength="120" value={form.resourceName} onChange={(event) => update('resourceName', event.target.value)} placeholder="e.g. Ibtida Guidebook" /></label></div>
           <div className="form-row"><label className="form-field">Dispatch reference<input maxLength={80} value={form.dispatchReference} onChange={(event) => update('dispatchReference', event.target.value)} placeholder="Optional reference number" /></label><label className="form-field">Dispatch date<input type="date" required value={form.headOfficeDispatchDate} onChange={(event) => update('headOfficeDispatchDate', event.target.value)} /></label></div>
@@ -324,7 +332,7 @@ function ReceiptDialog({ initial, onClose, onSave, onRetry }) {
           <label className="form-field">Notes<textarea rows="2" maxLength="300" value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Optional delivery notes or condition" /></label>
         </>}
         {quantityError && <p className="form-error">{quantityError}</p>}
-        <div className="dialog-actions"><button type="button" className="cancel-button" onClick={onClose}>Close</button><button type="submit" className="add-resource-button" disabled={Boolean(quantityError)}><FileText size={15} />{stage === 3 ? 'Complete receipt' : `Save and continue to stage ${stage + 2}`}</button></div>
+        <div className="dialog-actions receipt-dialog-actions"><button type="button" className="cancel-button" onClick={onClose}>Close</button><button type="submit" name="save-and-new" value="save-and-new" className="save-and-new-button" disabled={Boolean(quantityError)}><Plus size={15} />Save stage &amp; create another receipt</button><button type="submit" className="add-resource-button" disabled={Boolean(quantityError)}><FileText size={15} />{stage === 3 ? 'Complete receipt' : `Save and continue to stage ${stage + 2}`}</button></div>
       </form>
     </section>
   </div>;
@@ -338,7 +346,7 @@ function ReceiptTimeline({ receipt, onRetry }) {
     const event = (receipt.timeline || []).find((item) => item.stage === index + 1 && item.kind !== 'reminder');
     const deadline = receipt[deadlineKeys[index]] || event?.deadline;
     const overdue = !event && deadline && deadline < today;
-    return <div className={`timeline-event ${overdue ? 'overdue' : ''}`} key={label}><span className="timeline-marker">{event ? '✓' : index + 1}</span><div><b>{label}</b><small>{event ? `From ${event.senderEmail} · To ${event.receiverEmail} · Completed ${new Date(event.completedAt).toLocaleString()} · Email ${event.emailStatus || 'not connected'}` : `Due ${deadline || 'not set'} · ${overdue ? 'OVERDUE' : deadline === today ? 'DUE TODAY' : 'Pending'}`}</small>{event && event.emailStatus !== 'sent' && event.senderEmail && event.receiverEmail && onRetry && <button type="button" className="timeline-retry" onClick={() => onRetry(index + 1)}>Retry email to both contacts</button>}</div></div>;
+    return <div className={`timeline-event stage-${index + 1} ${overdue ? 'overdue' : ''}`} key={label}><span className="timeline-marker">{event ? '✓' : index + 1}</span><div><b>{label}</b><small>{event ? `From ${event.senderEmail} · To ${event.receiverEmail} · Completed ${new Date(event.completedAt).toLocaleString()} · Email ${event.emailStatus || 'not connected'}` : `Due ${deadline || 'not set'} · ${overdue ? 'OVERDUE' : deadline === today ? 'DUE TODAY' : 'Pending'}`}</small>{event && event.emailStatus !== 'sent' && event.senderEmail && event.receiverEmail && onRetry && <button type="button" className="timeline-retry" onClick={() => onRetry(index + 1)}>Retry email to both contacts</button>}</div></div>;
   })}{(receipt.timeline || []).filter((event) => event.kind === 'reminder').map((event, index) => <div className="timeline-event overdue" key={`reminder-${event.stage}-${event.reminderDate || index}`}><span className="timeline-marker">!</span><div><b>{event.event}</b><small>To {event.emailedTo?.join(', ') || `${event.senderEmail}, ${event.receiverEmail}`} · {event.reminderDate || new Date(event.completedAt).toLocaleString()} · Email {event.emailStatus || 'pending'}</small></div></div>)}</section>;
 }
 
