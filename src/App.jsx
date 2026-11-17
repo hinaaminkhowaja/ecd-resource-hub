@@ -172,7 +172,7 @@ function App() {
       setReceipts((current) => current.map((item) => item.id === receiptId ? updated : item));
       setSelectedReceipt((current) => current?.id === receiptId ? updated : current);
       const event = updated.timeline.find((item) => item.stage === stage && item.kind !== 'reminder');
-      setNotice(event?.emailStatus === 'sent' ? 'Email sent to the listed contacts.' : 'Email still could not be sent. Check the notification settings and contact addresses.');
+      setNotice(event?.emailStatus === 'sent' ? 'Email sent to the listed contacts.' : 'Email still could not be sent${event?.emailError ? ` (${event.emailError})` : ''}. Check the notification settings and contact addresses.');
     } catch {
       setNotice('The receipt service is unavailable, so the email could not be retried.');
     }
