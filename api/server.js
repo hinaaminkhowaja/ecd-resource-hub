@@ -7,11 +7,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
 const port = Number(process.env.API_PORT || 3001);
-const timezone = process.env.TIME_ZONE || 'Asia/Karachi';
 async function readReceipts() {
   try {
     const rows = JSON.parse(await readFile(storePath, 'utf8'));
-    return Array.isArray(rows) ? rows : [];
+    return Array.isArray(rows) ? rows.filter((row) => row?.id).map(removeEmailMetadata) : [];
   } catch {
     return [];
   }
