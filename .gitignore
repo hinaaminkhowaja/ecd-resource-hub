@@ -4,4 +4,6 @@ dist/
 .env.*
 !.env.example
 *.log
+/data/receipt-store.json
 .DS_Store
+
