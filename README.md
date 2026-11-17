@@ -8,7 +8,7 @@ After pulling updates, run `npm install`, then `npm run dev`. The command starts
 
 ## Send notifications with Power Automate
 
-1. In Power Automate, create an **Automated cloud flow** with the **When an HTTP request is received** trigger.
+1. In Power Automate, create an **Instant cloud flow** with the **When an HTTP request is received** trigger.
 2. Use this JSON schema for the trigger:
 
    ```json
