@@ -242,8 +242,17 @@ function App() {
             </button>;
           })}
         </section>
-      </> : <>
-        <section className="panel-page-heading">
+      </> : <div className="panel-workspace">
+        <aside className="panel-sidebar" aria-label="ECED panels">
+          <div className="panel-sidebar-label">WORK AREAS</div>
+          {panels.map((item) => {
+            const Icon = item.icon;
+            return <button type="button" key={item.id} className={'panel-nav-link ' + (panel === item.id ? 'active' : '')} aria-current={panel === item.id ? 'page' : undefined} onClick={() => setPanel(item.id)}>
+              <Icon size={17} /><span>{item.title}</span>
+            </button>;
+          })}
+        </aside>
+        <div className="panel-content"><>
           <button type="button" className="back-to-panels" onClick={() => setPanel('home')}>← All panels</button>
           <div className="eyebrow">ECED RESOURCE HUB</div>
           <h1>{currentPanel?.title}</h1>
@@ -268,7 +277,8 @@ function App() {
           <div className="panel-action-row"><p>Create and manage four-stage receipts for resource deliveries.</p><button className="receipt-launch-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}><Plus size={17} />Create a delivery receipt</button></div>
           {receipts.length > 0 ? <div className="history-list panel-receipt-list">{receipts.map((receipt) => <article className="delivery-workflow-item" key={receipt.id}><button className="history-row" onClick={() => { if ((receipt.stage ?? 4) >= 4) setSelectedReceipt(receipt); else { setEditingReceipt(receipt); setReceiptDialogOpen(true); } }}><span><b>{receipt.resourceName || receipt.resourceCategory || 'ECD resource'}</b><small>{receipt.region}{receipt.localBoard ? ' · ' + receipt.localBoard : ''}{receipt.recName ? ' · ' + receipt.recName : ''}</small></span><span className="history-quantity">{(receipt.stage ?? 4) >= 4 ? (receipt.recAcknowledgement === 'not-received' ? 'Not received · follow up' : receipt.recAcknowledgement === 'received-after-deadline' ? 'Received after deadline' : 'Complete') : 'Continue · stage ' + receipt.stage + ' of 4'}</span><span className="history-id">{receipt.id}</span></button><ReceiptTimeline receipt={receipt} /></article>)}</div> : <div className="empty-state"><FileText size={24} /><b>No delivery receipts yet</b><span>Create a receipt to record dispatch and acknowledgement at each stage.</span></div>}
         </section>}
-      </>}
+        </></div>
+      </div>}
 
       {resourceDialogOpen && <ResourceDialog initial={editingResource} onClose={() => { setResourceDialogOpen(false); setEditingResource(null); }} onSave={saveResource} />}
       {receiptDialogOpen && <ReceiptDialog key={(editingReceipt?.id || 'new') + '-' + receiptDialogInstance} initial={editingReceipt} onClose={() => { setReceiptDialogOpen(false); setEditingReceipt(null); }} onSave={saveReceipt} />}
