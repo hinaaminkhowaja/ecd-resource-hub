@@ -143,3 +143,6 @@
 .ibtida-history-empty span{color:#869087}
 .ibtida-prefill-notice{margin:0 0 13px;padding:10px 12px;border-left:3px solid #76a37b;border-radius:5px;background:#f0f7ef;color:#4f6e53;font:10px/1.45 'DM Sans',sans-serif}
 @media(max-width:650px){.ibtida-history-grid{grid-template-columns:1fr}.ibtida-history-card dl{grid-template-columns:1fr 1fr}.ibtida-history-heading{align-items:flex-start}}
+
+.ibtida-field-history{display:block;margin-top:4px;color:#7a887b;font:500 9px/1.45 'DM Sans',sans-serif}
+.ibtida-saved-group dl .ibtida-field-history{grid-column:1/-1;margin-top:-4px;padding:0 1px 4px}
