@@ -253,6 +253,7 @@ function App() {
           })}
         </aside>
         <div className="panel-content"><>
+        <section className="panel-page-heading">
           <button type="button" className="back-to-panels" onClick={() => setPanel('home')}>← All panels</button>
           <div className="eyebrow">ECED RESOURCE HUB</div>
           <h1>{currentPanel?.title}</h1>
