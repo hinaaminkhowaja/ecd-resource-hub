@@ -435,48 +435,19 @@ function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecor
     </div>}
     {message && <p className="data-import-message">{message}</p>}
     {showRecClassFilters && selectedClasses.includes('Ibtida') && rows.length > 0 && <div className="classroom-review-banner"><div><b>Ibtida classroom data</b><span>{reviewedAt ? 'Review confirmed ' + new Date(reviewedAt).toLocaleString() : 'Review the displayed records, make any needed edits, then confirm.'}</span></div><button type="button" className="confirm-review-button" onClick={confirmReview} disabled={editingIndex !== null}>{reviewedAt ? 'Confirm again' : 'Confirm review'}</button></div>}
-    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <><IbtidaClassroomHistory record={sourceRecord} /><IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} sourceRecord={sourceRecord} /></>}
+    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} sourceRecord={sourceRecord} /></>}
     {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{showRecClassFilters && <th>Review</th>}</tr></thead><tbody>{visibleRows.map(({ record, index }) => <tr key={index}>{columns.map((column) => <td key={column}>{editingIndex === index ? <input className="data-cell-input" aria-label={column} value={draftRecord?.[column] ?? ''} onChange={(event) => setDraftRecord((current) => ({ ...current, [column]: event.target.value }))} /> : record[column]}</td>)}{showRecClassFilters && <td className="data-row-actions">{editingIndex === index ? <><button type="button" onClick={saveEditedRecord}>Save</button><button type="button" className="cancel-edit-button" onClick={() => { setEditingIndex(null); setDraftRecord(null); }}>Cancel</button></> : <button type="button" onClick={() => beginEdit(index, record)}>Edit</button>}</td>}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Import the Ibtida classroom data file when it is available to populate this panel.'}</span></div>}
-  </section>;
-}
-
-function historicalEntries(value, prefix = '') {
-  if (value === null || value === undefined || value === '') return [];
-  if (Array.isArray(value)) return value.flatMap((item, index) => historicalEntries(item, prefix ? prefix + ' ' + (index + 1) : 'Item ' + (index + 1)));
-  if (typeof value === 'object') return Object.entries(value).flatMap(([key, child]) => historicalEntries(child, prefix ? prefix + ' · ' + key : key));
-  return [[prefix, String(value)]];
-}
-
-function historicalLabel(value) {
-  return String(value).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function IbtidaClassroomHistory({ record }) {
-  if (!record) return <section className="ibtida-history-empty"><b>No matching historical workbook row</b><span>This REC remains available for a new classroom profile.</span></section>;
-  const sections = [
-    { title: 'At initiation' + (record.initiated?.year ? ' · ' + record.initiated.year : ''), data: record.initiated },
-    ...(record.assessments2023 || []).map((assessment, index) => ({
-      title: '2023 assessment' + ((record.assessments2023.length > 1 ? ' ' + (index + 1) : '') + (assessment.assessedOn ? ' · ' + assessment.assessedOn : '')),
-      data: assessment,
-      note: [assessment.sourceLocationLabel, assessment.matchNote].filter(Boolean).join(' · '),
-    })),
-    { title: 'Sustainability' + (record.sustainability?.year ? ' · ' + record.sustainability.year : ''), data: record.sustainability },
-    { title: 'Regional remarks', data: record.regionalRemarks ? { remarks: record.regionalRemarks } : null },
-    { title: 'REPO follow-up' + (record.repo?.year ? ' · ' + record.repo.year : ''), data: record.repo },
-  ].filter((section) => section.data && Object.keys(section.data).length);
-  return <section className="ibtida-history-panel">
-    <div className="ibtida-history-heading"><div><div className="eyebrow">HISTORICAL CLASSROOM RECORD</div><h3>Workbook information for this REC</h3><p>Review these source records before updating the classroom profile below.</p></div><span>{(record.assessments2023 || []).length} assessment{(record.assessments2023 || []).length === 1 ? '' : 's'}</span></div>
-    <div className="ibtida-history-grid">{sections.map((section) => {
-      const entries = historicalEntries(section.data);
-      return <article className="ibtida-history-card" key={section.title}><h4>{section.title}</h4>{section.note && <p className="ibtida-history-source">{section.note}</p>}<dl>{entries.map(([label, value], index) => <div key={label + index}><dt>{historicalLabel(label)}</dt><dd>{value}</dd></div>)}</dl></article>;
-    })}</div>
-    <p className="ibtida-history-source-note">These historical workbook details are shown for reference. The editable profile is saved separately in this browser.</p>
   </section>;
 }
 
 const ibtidaModels = ['Regular model', 'Regular model with AKES', 'Weekend model', 'Multigrade model'];
 const ibtidaBasicFields = [
   { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
+  { id: 'sustainabilityYear', label: 'Sustainability year', type: 'number' },
+  { id: 'repoYear', label: 'REPO year', type: 'number' },
+  { id: 'assessmentDate', label: 'Latest assessment date', type: 'date' },
+  { id: 'modelAtInitiation', label: 'Model at initiation' },
+  { id: 'modelAtSustainability', label: 'Model at sustainability' },
   { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
   { id: 'dailyDuration', label: 'Time duration per day for Ibtida class' },
   { id: 'classTimings', label: 'Time of classes' },
@@ -502,6 +473,8 @@ const ibtidaRoomsGroup = {
     { id: 'roomAgeAppropriate', label: 'Room is age appropriate for children', type: 'yesno' },
     { id: 'otherClassesSameRoom', label: 'Any other classes conducted in the same room?', type: 'text' },
     { id: 'parwaazSameRoom', label: 'Are Parwaaz sessions conducted in the same room?', type: 'yesno' },
+    { id: 'roomRenovationInitiated', label: 'Renovation at initiation' },
+    { id: 'roomRenovationSustainability', label: 'Renovation at sustainability' },
   ],
 };
 const ibtidaFurnitureGroup = {
@@ -513,7 +486,12 @@ const ibtidaFurnitureGroup = {
     { id: 'seatingArrangement', label: 'Chairs or other proper seating', type: 'checkQuantity' },
     { id: 'shelves', label: 'Shelves', type: 'checkQuantity' },
     { id: 'bookRacks', label: 'Book racks', type: 'checkQuantity' },
+    { id: 'softBoard', label: 'Soft board', type: 'checkQuantity' },
+    { id: 'whiteBoard', label: 'White board', type: 'checkQuantity' },
+    { id: 'cupboard', label: 'Cupboard', type: 'checkQuantity' },
     { id: 'moveableShelves', label: 'Moveable shelves made from low-cost materials', type: 'check' },
+    { id: 'itemsProvidedAtInitiation', label: 'Other items provided at initiation' },
+    { id: 'itemsProvidedAtSustainability', label: 'Items provided at sustainability', type: 'textarea' },
   ],
 };
 const ibtidaKitGroup = {
@@ -523,6 +501,8 @@ const ibtidaKitGroup = {
     { id: 'resourceKitShelves', label: 'Resource kit is kept on shelves', type: 'yesno' },
     { id: 'resourceKitUsed', label: 'Resource kit is used by students', type: 'yesno' },
     { id: 'resourceKitCondition', label: 'Condition of the resource kit is good', type: 'yesno' },
+    { id: 'kitProvisionAtInitiation', label: 'Resource kit provided at initiation' },
+    { id: 'kitProvisionAtSustainability', label: 'Resource kit provided at sustainability' },
     { id: 'kitJarsBaskets', label: 'Jars and baskets', type: 'check' },
     { id: 'kitPuzzlesBlocks', label: 'Different puzzles and blocks', type: 'check' },
     { id: 'kitUtensils', label: 'Utensils', type: 'check' },
@@ -593,11 +573,57 @@ function displayIbtidaValue(profile, field) {
   return profile[field.id] || 'Not recorded';
 }
 
+function historicalFieldContext(record, fieldId) {
+  if (!record) return '';
+  const furnitureIds = {
+    halfMoonTables: 'halfMoonTables',
+    cushions: 'cushions',
+    shelves: 'shelves',
+    bookRacks: 'bookRack',
+    softBoard: 'softBoard',
+    whiteBoard: 'whiteBoard',
+    cupboard: 'cupboard',
+  };
+  if (furnitureIds[fieldId]) {
+    const item = furnitureIds[fieldId];
+    const stages = [
+      ['Initiated', record.initiated?.furniture?.[item]],
+      ['Sustainability', record.sustainability?.furniture?.[item]],
+      ['REPO', record.repo?.furniture?.[item]],
+    ].filter(([, value]) => value !== null && value !== undefined && value !== '');
+    if (stages.length) return stages.map(([stage, value]) => stage + ': ' + String(value).replace(/^yes$/i, 'Yes').replace(/^no$/i, 'No')).join(' · ');
+  }
+  if (fieldId === 'resourceKitAvailable') {
+    const stages = [
+      ['At initiation', record.initiated?.resourceKitProvided],
+      ['At sustainability', record.sustainability?.resourceKitProvided],
+    ].filter(([, value]) => value !== null && value !== undefined && value !== '');
+    if (stages.length) return stages.map(([stage, value]) => stage + ': ' + value).join(' · ');
+  }
+  if (fieldId === 'overallObservation' && record.regionalRemarks) return 'Regional remarks: ' + record.regionalRemarks;
+  return '';
+}
+
 function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   const profileId = [region, localBoard, recName].join('::');
+  const sourcePrefill = useMemo(() => sourceRecord ? {
+    ...(sourceRecord.prefill || {}),
+    yearInitiated: sourceRecord.prefill?.yearInitiated ?? sourceRecord.initiated?.year ?? '',
+    sustainabilityYear: sourceRecord.sustainability?.year ?? '',
+    repoYear: sourceRecord.repo?.year ?? '',
+    assessmentDate: sourceRecord.assessments2023?.at(-1)?.assessedOn || '',
+    modelAtInitiation: sourceRecord.initiated?.model || '',
+    modelAtSustainability: sourceRecord.sustainability?.model || '',
+    roomRenovationInitiated: sourceRecord.initiated?.renovation ?? '',
+    roomRenovationSustainability: sourceRecord.sustainability?.renovation ?? '',
+    itemsProvidedAtInitiation: sourceRecord.initiated?.otherItemsProvided || '',
+    itemsProvidedAtSustainability: sourceRecord.sustainability?.itemsProvided || '',
+    kitProvisionAtInitiation: sourceRecord.initiated?.resourceKitProvided || '',
+    kitProvisionAtSustainability: sourceRecord.sustainability?.resourceKitProvided || '',
+  } : null, [sourceRecord]);
   const [profile, setProfile] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId] || sourceRecord?.prefill || {}; }
-    catch { return sourceRecord?.prefill || {}; }
+    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId] || sourcePrefill || {}; }
+    catch { return sourcePrefill || {}; }
   });
   const [hasSavedProfile, setHasSavedProfile] = useState(() => {
     try { return Boolean(JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId]); }
@@ -606,16 +632,16 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
 
   useEffect(() => {
-    if (!sourceRecord?.prefill) return;
+    if (!sourcePrefill) return;
     if (hasSavedProfile) {
-      const missingFields = Object.entries(sourceRecord.prefill).filter(([field]) => !Object.hasOwn(profile, field));
+      const missingFields = Object.entries(sourcePrefill).filter(([field]) => !Object.hasOwn(profile, field));
       if (missingFields.length) setProfile((current) => ({ ...Object.fromEntries(missingFields), ...current }));
       return;
     }
     if (Object.keys(profile).length) return;
-    setProfile(sourceRecord.prefill);
+    setProfile(sourcePrefill);
     setIsEditing(false);
-  }, [sourceRecord, hasSavedProfile, profile]);
+  }, [sourcePrefill, hasSavedProfile, profile]);
   const [message, setMessage] = useState('');
   const groups = ibtidaGroupsForModel(profile.model);
 
@@ -673,7 +699,7 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
 
   return <section className="panel-section ibtida-classroom-form">
     <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p>{!isEditing && <small className="ibtida-model-label">{profile.model}</small>}</div>{!isEditing && <button type="button" className="edit-ibtida-button" onClick={() => setIsEditing(true)}><Pencil size={14} />Edit details</button>}</div>
-    {sourceRecord && !hasSavedProfile && <p className="ibtida-prefill-notice">Prefilled from {sourceRecord.prefillSourceLabel || 'the historical workbook data'}. Review or edit these details, then save and confirm.</p>}
+    {sourceRecord && !hasSavedProfile && <p className="ibtida-prefill-notice">Prefilled from available Ibtida records. Review or edit the survey details, then save and confirm.</p>}
     {!isEditing && profile.reviewedAt && <p className="ibtida-confirmed-status">Confirmed {new Date(profile.reviewedAt).toLocaleString()}</p>}
     {message && <p className="data-import-message">{message}</p>}
     {isEditing ? <form className="ibtida-groups-form" onSubmit={(event) => { event.preventDefault(); saveProfile(); }}>
@@ -688,10 +714,10 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
           </div>
         </div>)}
         <button type="button" className="add-teacher-button" onClick={addTeacher}><Plus size={14} />Add teacher</button>
-      </fieldset> : <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}</div>)}</div></fieldset>)}
+      </fieldset> : <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</div></fieldset>)}
       <div className="dialog-actions"><button className="add-resource-button" type="submit"><FileText size={15} />Save classroom details</button></div>
     </form> : <>
-      <div className="ibtida-saved-groups">{groups.map((group) => group.title === 'Teacher details & training' ? <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3>{(profile.teachers || []).length ? <div className="teacher-summary-list">{profile.teachers.map((teacher, index) => <article className="teacher-summary" key={index}><b>{teacher.name || 'Teacher ' + (index + 1)}</b><span>ITREB training: {teacher.itrebTraining || 'Not recorded'}</span><span>Other training: {teacher.otherTraining || 'Not recorded'}</span><span>Experience: {teacher.experienceYears ? teacher.experienceYears + ' years' : 'Not recorded'}</span></article>)}</div> : <p className="teacher-empty">No teachers recorded yet.</p>}</section> : <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd></div>)}</dl></section>)}</div>
+      <div className="ibtida-saved-groups">{groups.map((group) => group.title === 'Teacher details & training' ? <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3>{(profile.teachers || []).length ? <div className="teacher-summary-list">{profile.teachers.map((teacher, index) => <article className="teacher-summary" key={index}><b>{teacher.name || 'Teacher ' + (index + 1)}</b><span>ITREB training: {teacher.itrebTraining || 'Not recorded'}</span><span>Other training: {teacher.otherTraining || 'Not recorded'}</span><span>Experience: {teacher.experienceYears ? teacher.experienceYears + ' years' : 'Not recorded'}</span></article>)}</div> : <p className="teacher-empty">No teachers recorded yet.</p>}</section> : <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd>{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</dl></section>)}</div>
       <div className="dialog-actions"><button type="button" className="confirm-review-button" onClick={confirmProfile}>{profile.reviewedAt ? 'Confirm again' : 'Confirm details'}</button></div>
     </>}
   </section>;
