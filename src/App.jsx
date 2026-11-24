@@ -322,6 +322,12 @@ function findRecordField(record, candidates) {
   return key ? String(record[key] ?? '').trim() : '';
 }
 
+function findRecordField(record, candidates) {
+  const wanted = new Set(candidates.map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  const key = Object.keys(record).find((name) => wanted.has(name.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  return key ? String(record[key] ?? '').trim() : '';
+}
+
 function DataPanel({ title, storageKey, showRecClassFilters = false }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
@@ -329,14 +335,22 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
   const [localBoard, setLocalBoard] = useState('');
   const [recName, setRecName] = useState('');
   const [selectedClasses, setSelectedClasses] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [draftRecord, setDraftRecord] = useState(null);
+  const [reviewedAt, setReviewedAt] = useState(() => window.localStorage.getItem(storageKey + '.reviewedAt') || '');
   const columns = rows.length ? Object.keys(rows[0]) : [];
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === region).map((row) => row.localBoard))].sort(), [region]);
   const recOptions = useMemo(() => recDirectory.filter((row) => row.region === region && row.localBoard === localBoard), [region, localBoard]);
   const classOptions = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
+
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, JSON.stringify(rows));
+  }, [rows, storageKey]);
+
   const visibleRows = useMemo(() => {
-    if (!showRecClassFilters) return rows;
     const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    return rows.filter((record) => {
+    return rows.map((record, index) => ({ record, index })).filter(({ record }) => {
+      if (!showRecClassFilters) return true;
       const rowRegion = findRecordField(record, ['region', 'region name']);
       const rowBoard = findRecordField(record, ['local board', 'board', 'local board name']);
       const rowRec = findRecordField(record, ['rec', 'rec name', 'school', 'school name', 'centre', 'center']);
@@ -358,8 +372,11 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
         return;
       }
       setRows(imported);
-      window.localStorage.setItem(storageKey, JSON.stringify(imported));
-      setMessage(imported.length + ' rows loaded. The data is saved in this browser.');
+      setEditingIndex(null);
+      setDraftRecord(null);
+      setReviewedAt('');
+      window.localStorage.removeItem(storageKey + '.reviewedAt');
+      setMessage(imported.length + ' rows loaded. Review the records below and confirm when ready.');
     } catch {
       setMessage('The CSV file could not be read.');
     }
@@ -370,8 +387,30 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
     setSelectedClasses((current) => current.includes(className) ? current.filter((value) => value !== className) : [...current, className]);
   }
 
+  function beginEdit(index, record) {
+    setEditingIndex(index);
+    setDraftRecord({ ...record });
+  }
+
+  function saveEditedRecord() {
+    if (editingIndex === null || !draftRecord) return;
+    setRows((current) => current.map((record, index) => index === editingIndex ? draftRecord : record));
+    setEditingIndex(null);
+    setDraftRecord(null);
+    setReviewedAt('');
+    window.localStorage.removeItem(storageKey + '.reviewedAt');
+    setMessage('Record changes saved. Please confirm the review when you are finished.');
+  }
+
+  function confirmReview() {
+    const timestamp = new Date().toISOString();
+    window.localStorage.setItem(storageKey + '.reviewedAt', timestamp);
+    setReviewedAt(timestamp);
+    setMessage('Classroom data review confirmed.');
+  }
+
   return <section className="panel-section data-panel">
-    <div className="panel-action-row"><p>{showRecClassFilters ? 'Choose a location and class to narrow the classroom records.' : 'Import a CSV exported from Excel to display this information here.'}<br />{showRecClassFilters && 'You can also import your classroom data below.'}</p><label className="csv-import-button"><ArrowDownToLine size={15} />Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv} /></label></div>
+    <div className="panel-action-row"><p>{showRecClassFilters ? 'Choose a location and class to review classroom records.' : 'Import a CSV exported from Excel to display this information here.'}<br />{showRecClassFilters && 'You can import your classroom data below, then edit and confirm the records.'}</p><label className="csv-import-button"><ArrowDownToLine size={15} />Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv} /></label></div>
     {showRecClassFilters && <div className="classroom-filter-panel">
       <div className="classroom-location-selects">
         <label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); }}><option value="">Select a region</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label>
@@ -379,10 +418,11 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
         <label className="form-field">REC<select value={recName} disabled={!localBoard} onChange={(event) => setRecName(event.target.value)}><option value="">Select an REC</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label>
       </div>
       <fieldset className="classroom-class-select"><legend>Classes</legend>{classOptions.map((className) => <label key={className} className={'class-choice ' + (selectedClasses.includes(className) ? 'selected' : '')}><input type="checkbox" checked={selectedClasses.includes(className)} onChange={() => toggleClass(className)} /><span>{className}</span></label>)}</fieldset>
-      <div className="classroom-filter-summary">{visibleRows.length} classroom records shown{selectedClasses.length ? ' · ' + selectedClasses.length + ' classes selected' : ' · All classes'}</div>
+      <div className="classroom-filter-summary">{visibleRows.length} classroom records shown{selectedClasses.length ? ' · ' + selectedClasses.join(', ') + ' selected' : ' · All classes'}</div>
     </div>}
     {message && <p className="data-import-message">{message}</p>}
-    {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{visibleRows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Choose an Excel sheet saved as CSV to populate this panel.'}</span></div>}
+    {showRecClassFilters && selectedClasses.includes('Ibtida') && rows.length > 0 && <div className="classroom-review-banner"><div><b>Ibtida classroom data</b><span>{reviewedAt ? 'Review confirmed ' + new Date(reviewedAt).toLocaleString() : 'Review the displayed records, make any needed edits, then confirm.'}</span></div><button type="button" className="confirm-review-button" onClick={confirmReview} disabled={editingIndex !== null}>{reviewedAt ? 'Confirm again' : 'Confirm review'}</button></div>}
+    {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{showRecClassFilters && <th>Review</th>}</tr></thead><tbody>{visibleRows.map(({ record, index }) => <tr key={index}>{columns.map((column) => <td key={column}>{editingIndex === index ? <input className="data-cell-input" aria-label={column} value={draftRecord?.[column] ?? ''} onChange={(event) => setDraftRecord((current) => ({ ...current, [column]: event.target.value }))} /> : record[column]}</td>)}{showRecClassFilters && <td className="data-row-actions">{editingIndex === index ? <><button type="button" onClick={saveEditedRecord}>Save</button><button type="button" className="cancel-edit-button" onClick={() => { setEditingIndex(null); setDraftRecord(null); }}>Cancel</button></> : <button type="button" onClick={() => beginEdit(index, record)}>Edit</button>}</td>}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Import the Ibtida classroom data file when it is available to populate this panel.'}</span></div>}
   </section>;
 }
 function RequestPanel({ requests, onCreate, onStatusChange }) {
