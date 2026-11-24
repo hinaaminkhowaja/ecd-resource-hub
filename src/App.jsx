@@ -322,12 +322,6 @@ function findRecordField(record, candidates) {
   return key ? String(record[key] ?? '').trim() : '';
 }
 
-function findRecordField(record, candidates) {
-  const wanted = new Set(candidates.map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, '')));
-  const key = Object.keys(record).find((name) => wanted.has(name.toLowerCase().replace(/[^a-z0-9]/g, '')));
-  return key ? String(record[key] ?? '').trim() : '';
-}
-
 function DataPanel({ title, storageKey, showRecClassFilters = false }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
