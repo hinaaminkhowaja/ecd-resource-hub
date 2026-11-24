@@ -603,6 +603,12 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
     catch { return false; }
   });
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
+
+  useEffect(() => {
+    if (!sourceRecord?.prefill || hasSavedProfile || Object.keys(profile).length) return;
+    setProfile(sourceRecord.prefill);
+    setIsEditing(false);
+  }, [sourceRecord, hasSavedProfile, profile]);
   const [message, setMessage] = useState('');
   const groups = ibtidaGroupsForModel(profile.model);
 
