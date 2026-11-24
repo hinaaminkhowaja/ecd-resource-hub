@@ -1,1 +1,55 @@
 .add-resource-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #4d8059;background:#4d8059;color:#fff;border-radius:7px;padding:9px 12px;font:700 10px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}.add-resource-button:hover{background:#3d6f49}.resource-actions{display:flex;align-items:center;gap:9px}.resource-actions button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:#5e8365;font:700 9px 'DM Sans',sans-serif;padding:0;cursor:pointer}.resource-actions button:hover{text-decoration:underline}.resource-actions .delete-action{color:#aa655d}.empty-state .add-resource-button{margin-top:5px}.dialog-backdrop{position:fixed;inset:0;background:#1e2b2277;display:grid;place-items:center;padding:18px;z-index:5}.resource-dialog{width:min(100%,470px);background:#fff;border:1px solid #e7ece5;border-radius:13px;padding:22px;box-shadow:0 22px 70px #1c2c2140}.dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:19px}.dialog-heading h2{font:700 21px Manrope,sans-serif;color:#304436;margin:6px 0 0}.dialog-close{border:0;background:#f1f4ef;color:#728075;border-radius:7px;width:31px;height:31px;display:grid;place-items:center;cursor:pointer}.resource-dialog form{display:grid;gap:13px}.form-field{display:grid;gap:6px;color:#5b6b5e;font-size:10px;font-weight:700}.form-field input,.form-field select,.form-field textarea{width:100%;border:1px solid #e2e8e0;border-radius:7px;background:#fff;padding:10px;color:#35483a;font:11px 'DM Sans',sans-serif;outline:none}.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:#81a989;box-shadow:0 0 0 3px #eaf3eb}.form-field textarea{resize:vertical;min-height:76px}.form-field input::placeholder,.form-field textarea::placeholder{color:#a3aca3}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:5px}.cancel-button{border:1px solid #e0e6de;background:#fff;color:#66756a;border-radius:7px;padding:9px 12px;font:600 10px 'DM Sans',sans-serif;cursor:pointer}@media(max-width:480px){.section-heading .add-resource-button{padding:8px;font-size:9px}.form-row{grid-template-columns:1fr}.resource-dialog{padding:18px}.resource-actions{gap:7px}.resource-actions button{font-size:8px}}
+
+/* Five-panel ECED dashboard */
+.app-shell.panel-app{display:block;min-height:100vh;height:auto;background:#f6f8f5;overflow:visible}
+.panel-app .panel-topbar{height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 max(24px,calc((100vw - 1180px)/2));background:#fff;border-bottom:1px solid #e6ebe4}
+.panel-brand{display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;cursor:pointer}
+.panel-brand>span:last-child{display:grid;gap:2px}
+.panel-brand strong{font:800 16px Manrope,sans-serif;color:#31483a;letter-spacing:.08em}
+.panel-brand small{font:700 8px 'DM Sans',sans-serif;color:#849187;letter-spacing:.16em}
+.all-panels-button,.back-to-panels{border:1px solid #dfe7dd;background:#fff;color:#4f7257;border-radius:8px;padding:9px 12px;font:700 11px 'DM Sans',sans-serif;cursor:pointer}
+.panel-main{width:min(100%,1240px);margin:0 auto;padding:38px 30px 60px}
+.panel-welcome{padding:18px 2px 28px}
+.panel-welcome h1,.panel-page-heading h1{margin:8px 0;color:#304436;font:750 clamp(28px,4vw,38px) Manrope,sans-serif;letter-spacing:-.035em}
+.panel-welcome p,.panel-page-heading p,.panel-action-row>p{margin:0;color:#758176;font:400 13px/1.6 'DM Sans',sans-serif}
+.panel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.panel-card{position:relative;display:flex;min-height:190px;flex-direction:column;align-items:flex-start;gap:12px;padding:22px;border:1px solid #e6ebe4;border-radius:14px;background:#fff;text-align:left;box-shadow:0 5px 18px #354b3710;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.panel-card:hover{transform:translateY(-2px);border-color:#b8cbb8;box-shadow:0 12px 28px #354b3718}
+.panel-card-icon{display:grid;width:42px;height:42px;place-items:center;border-radius:12px;background:#eaf2e9;color:#4f8058}
+.panel-card-access .panel-card-icon{background:#edf1fb;color:#6476a8}.panel-card-materials .panel-card-icon{background:#fcf1df;color:#a77536}.panel-card-requests .panel-card-icon{background:#fbece6;color:#b56d52}.panel-card-receipts .panel-card-icon{background:#f1ebf7;color:#876aa0}
+.panel-card-title{color:#33483a;font:700 16px Manrope,sans-serif}
+.panel-card-description{max-width:34ch;color:#7d887e;font:400 11px/1.55 'DM Sans',sans-serif}
+.panel-card-count{margin-top:auto;color:#6f8172;font:700 10px 'DM Sans',sans-serif}
+.panel-page-heading{padding:3px 0 22px}
+.panel-page-heading .back-to-panels{margin-bottom:20px}
+.eyebrow{color:#78907a;font:800 9px 'DM Sans',sans-serif;letter-spacing:.13em}
+.panel-page-heading h1{font-size:30px}
+.panel-section{margin-top:8px;padding:21px;border:1px solid #e6ebe4;border-radius:13px;background:#fff;box-shadow:0 5px 18px #354b3708}
+.panel-action-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:17px}
+.panel-action-row>p{font-size:11px}
+.material-category-row{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+.csv-import-button{position:relative;display:inline-flex;align-items:center;gap:7px;border:1px solid #4d8059;border-radius:8px;background:#4d8059;color:white;padding:9px 13px;font:700 11px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap;overflow:hidden}
+.csv-import-button input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.data-import-message{margin:0 0 12px;color:#557b5c;font:600 11px 'DM Sans',sans-serif}
+.data-table-wrap{max-width:100%;overflow:auto;border:1px solid #e7ece5;border-radius:9px}
+.data-table{width:100%;border-collapse:collapse;font:11px 'DM Sans',sans-serif}
+.data-table th{position:sticky;top:0;background:#f1f5ef;color:#506452;text-align:left;font-weight:700}
+.data-table th,.data-table td{padding:10px 12px;border-bottom:1px solid #edf0eb;white-space:nowrap}
+.data-table td{color:#546257}
+.request-panel{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(0,1.1fr);gap:24px;align-items:start}
+.request-form{display:grid;gap:14px;padding:18px;border:1px solid #e9ede7;border-radius:10px;background:#fbfcfa}
+.request-form h2,.request-list h2{margin:0;color:#34483a;font:700 16px Manrope,sans-serif}
+.request-list{display:grid;gap:12px}
+.request-list .history-heading{margin:0}
+.request-ticket{padding:14px;border:1px solid #e8ede6;border-radius:9px;background:#fff}
+.request-ticket-heading,.request-ticket-details{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.request-ticket-heading>div{display:grid;gap:5px}.request-ticket-heading b{color:#364a3a;font:700 13px Manrope,sans-serif}.request-ticket-heading small{color:#7d887e;font:10px 'DM Sans',sans-serif}.request-ticket-heading strong{color:#66816a;font:700 9px 'DM Sans',sans-serif;white-space:nowrap}
+.request-ticket-details{align-items:center;flex-wrap:wrap;margin-top:12px;color:#758176;font:10px 'DM Sans',sans-serif}
+.request-ticket-details label{display:flex;align-items:center;gap:6px}.request-ticket-details select{border:1px solid #e0e7de;border-radius:6px;padding:6px;color:#405443;background:white;font:10px 'DM Sans',sans-serif}
+.request-ticket>p{margin:10px 0 0;color:#707c71;font:11px/1.5 'DM Sans',sans-serif}
+.panel-receipt-list{display:grid;gap:12px}
+.panel-receipt-list .delivery-workflow-item{border:1px solid #e6ebe4;border-radius:10px;background:#fff;padding:7px 12px}
+.panel-receipt-list .receipt-timeline{margin:0 4px 12px}
+.source-note{margin-top:20px}
+@media(max-width:850px){.panel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.request-panel{grid-template-columns:1fr}}
+@media(max-width:560px){.panel-app .panel-topbar{padding:0 16px}.panel-main{padding:24px 16px 44px}.panel-grid{grid-template-columns:1fr}.panel-card{min-height:160px}.panel-action-row{align-items:flex-start;flex-direction:column}.panel-section{padding:15px}.request-form{padding:14px}.panel-welcome{padding-top:4px}}
