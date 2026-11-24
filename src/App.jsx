@@ -260,7 +260,7 @@ function App() {
           <p>{currentPanel?.description}</p>
         </section>
 
-        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" />}
+        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters />}
         {panel === 'access' && <DataPanel title="ECED Access & Enrollment" storageKey="ecd-resource-hub.access-data" />}
 
         {panel === 'materials' && <section className="library-section panel-section">
@@ -316,10 +316,37 @@ function parseCsvRows(text) {
   return rows.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] || ''])));
 }
 
-function DataPanel({ title, storageKey }) {
+function findRecordField(record, candidates) {
+  const wanted = new Set(candidates.map((value) => value.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  const key = Object.keys(record).find((name) => wanted.has(name.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  return key ? String(record[key] ?? '').trim() : '';
+}
+
+function DataPanel({ title, storageKey, showRecClassFilters = false }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
+  const [region, setRegion] = useState('');
+  const [localBoard, setLocalBoard] = useState('');
+  const [recName, setRecName] = useState('');
+  const [selectedClasses, setSelectedClasses] = useState([]);
   const columns = rows.length ? Object.keys(rows[0]) : [];
+  const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === region).map((row) => row.localBoard))].sort(), [region]);
+  const recOptions = useMemo(() => recDirectory.filter((row) => row.region === region && row.localBoard === localBoard), [region, localBoard]);
+  const classOptions = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
+  const visibleRows = useMemo(() => {
+    if (!showRecClassFilters) return rows;
+    const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return rows.filter((record) => {
+      const rowRegion = findRecordField(record, ['region', 'region name']);
+      const rowBoard = findRecordField(record, ['local board', 'board', 'local board name']);
+      const rowRec = findRecordField(record, ['rec', 'rec name', 'school', 'school name', 'centre', 'center']);
+      const rowClass = findRecordField(record, ['class', 'class name', 'grade']);
+      return (!region || !rowRegion || normalize(rowRegion) === normalize(region))
+        && (!localBoard || !rowBoard || normalize(rowBoard) === normalize(localBoard))
+        && (!recName || !rowRec || normalize(rowRec) === normalize(recName))
+        && (!selectedClasses.length || !rowClass || selectedClasses.some((value) => normalize(value) === normalize(rowClass)));
+    });
+  }, [rows, showRecClassFilters, region, localBoard, recName, selectedClasses]);
 
   async function importCsv(event) {
     const file = event.target.files?.[0];
@@ -339,13 +366,25 @@ function DataPanel({ title, storageKey }) {
     event.target.value = '';
   }
 
+  function toggleClass(className) {
+    setSelectedClasses((current) => current.includes(className) ? current.filter((value) => value !== className) : [...current, className]);
+  }
+
   return <section className="panel-section data-panel">
-    <div className="panel-action-row"><p>Import a CSV exported from Excel to display this information here.</p><label className="csv-import-button"><ArrowDownToLine size={15} />Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv} /></label></div>
+    <div className="panel-action-row"><p>{showRecClassFilters ? 'Choose a location and class to narrow the classroom records.' : 'Import a CSV exported from Excel to display this information here.'}<br />{showRecClassFilters && 'You can also import your classroom data below.'}</p><label className="csv-import-button"><ArrowDownToLine size={15} />Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv} /></label></div>
+    {showRecClassFilters && <div className="classroom-filter-panel">
+      <div className="classroom-location-selects">
+        <label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); }}><option value="">Select a region</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label className="form-field">Local Board<select value={localBoard} disabled={!region} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); }}><option value="">Select a local board</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label className="form-field">REC<select value={recName} disabled={!localBoard} onChange={(event) => setRecName(event.target.value)}><option value="">Select an REC</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label>
+      </div>
+      <fieldset className="classroom-class-select"><legend>Classes</legend>{classOptions.map((className) => <label key={className} className={'class-choice ' + (selectedClasses.includes(className) ? 'selected' : '')}><input type="checkbox" checked={selectedClasses.includes(className)} onChange={() => toggleClass(className)} /><span>{className}</span></label>)}</fieldset>
+      <div className="classroom-filter-summary">{visibleRows.length} classroom records shown{selectedClasses.length ? ' · ' + selectedClasses.length + ' classes selected' : ' · All classes'}</div>
+    </div>}
     {message && <p className="data-import-message">{message}</p>}
-    {rows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{rows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>No {title.toLowerCase()} loaded</b><span>Choose an Excel sheet saved as CSV to populate this panel.</span></div>}
+    {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{visibleRows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>No {title.toLowerCase()} loaded</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Choose an Excel sheet saved as CSV to populate this panel.'}</span></div>}
   </section>;
 }
-
 function RequestPanel({ requests, onCreate, onStatusChange }) {
   const [form, setForm] = useState({ resourceCategory: receiptCategories[0], resourceName: '', region: '', localBoard: '', recName: '', quantity: '', neededBy: '', reason: '' });
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === form.region).map((row) => row.localBoard))].sort(), [form.region]);
