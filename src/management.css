@@ -84,3 +84,22 @@
 .data-cell-input{min-width:90px;width:100%;border:1px solid #a8c3a7;border-radius:5px;padding:6px;color:#35483a;font:11px 'DM Sans',sans-serif}
 .data-row-actions{display:flex;gap:8px}.data-row-actions button{border:0;background:transparent;color:#4d8059;font:700 10px 'DM Sans',sans-serif;cursor:pointer}.data-row-actions .cancel-edit-button{color:#8c7770}
 @media(max-width:560px){.classroom-review-banner{align-items:flex-start;flex-direction:column}.data-row-actions{flex-direction:column;gap:5px}}
+
+.ibtida-classroom-form{margin-top:18px}
+.ibtida-form-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.ibtida-form-heading h2{margin:5px 0;color:#34483a;font:700 20px Manrope,sans-serif}
+.ibtida-form-heading p{margin:0;color:#7a867c;font:11px 'DM Sans',sans-serif}
+.ibtida-groups-form{display:grid;gap:14px}
+.ibtida-field-group,.ibtida-saved-group{min-width:0;margin:0;padding:16px;border:1px solid #e6ebe4;border-radius:10px;background:#fbfcfa}
+.ibtida-field-group legend{padding:0 6px;color:#4a674e;font:700 13px Manrope,sans-serif}
+.ibtida-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.ibtida-field-textarea{grid-column:1/-1}
+.ibtida-saved-groups{display:grid;gap:12px}
+.ibtida-saved-group h3{margin:0 0 10px;color:#4a674e;font:700 13px Manrope,sans-serif}
+.ibtida-saved-group dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0}
+.ibtida-saved-group dl>div{padding-bottom:8px;border-bottom:1px solid #e9eee7}
+.ibtida-saved-group dt{color:#79857b;font:600 10px/1.45 'DM Sans',sans-serif}
+.ibtida-saved-group dd{margin:4px 0 0;color:#394b3d;font:600 11px/1.45 'DM Sans',sans-serif}
+.ibtida-confirmed-status{margin:0 0 12px;padding:9px 11px;border-radius:7px;background:#edf5ec;color:#426d49;font:600 10px 'DM Sans',sans-serif}
+.edit-ibtida-button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dfe7dd;border-radius:7px;background:#fff;color:#4f7257;padding:8px 10px;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+@media(max-width:650px){.ibtida-field-grid,.ibtida-saved-group dl{grid-template-columns:1fr}.ibtida-form-heading{align-items:flex-start}}
