@@ -461,6 +461,7 @@ function IbtidaClassroomHistory({ record }) {
       note: [assessment.sourceLocationLabel, assessment.matchNote].filter(Boolean).join(' · '),
     })),
     { title: 'Sustainability' + (record.sustainability?.year ? ' · ' + record.sustainability.year : ''), data: record.sustainability },
+    { title: 'Regional remarks', data: record.regionalRemarks ? { remarks: record.regionalRemarks } : null },
     { title: 'REPO follow-up' + (record.repo?.year ? ' · ' + record.repo.year : ''), data: record.repo },
   ].filter((section) => section.data && Object.keys(section.data).length);
   return <section className="ibtida-history-panel">
