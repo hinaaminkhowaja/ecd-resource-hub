@@ -113,3 +113,13 @@
 .ibtida-tick-quantity>input{width:110px;border:1px solid #e2e8e0;border-radius:7px;padding:9px;color:#35483a;font:11px 'DM Sans',sans-serif}
 .ibtida-field-check,.ibtida-field-checkQuantity{padding:9px;border:1px solid #e9ede7;border-radius:8px;background:#fff}
 .ibtida-field-check .ibtida-field-label,.ibtida-field-checkQuantity .ibtida-field-label{margin-bottom:4px}
+
+.teacher-record{margin:0 0 12px;padding:13px;border:1px solid #e7ece5;border-radius:9px;background:#fff}
+.teacher-record-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;color:#4a674e;font:700 11px Manrope,sans-serif}
+.teacher-remove-button{border:0;background:transparent;color:#a66c61;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+.add-teacher-button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dce7da;border-radius:7px;background:#f7faf5;color:#4d8059;padding:8px 10px;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+.teacher-summary-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.teacher-summary{display:grid;gap:6px;padding:12px;border:1px solid #e8ede6;border-radius:8px;background:#fff;color:#718073;font:10px/1.4 'DM Sans',sans-serif}
+.teacher-summary b{color:#405c46;font:700 12px Manrope,sans-serif}
+.teacher-empty{margin:0;color:#7b877d;font:11px 'DM Sans',sans-serif}
+@media(max-width:650px){.teacher-summary-list{grid-template-columns:1fr}}
