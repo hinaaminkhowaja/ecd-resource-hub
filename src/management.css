@@ -103,3 +103,13 @@
 .ibtida-confirmed-status{margin:0 0 12px;padding:9px 11px;border-radius:7px;background:#edf5ec;color:#426d49;font:600 10px 'DM Sans',sans-serif}
 .edit-ibtida-button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dfe7dd;border-radius:7px;background:#fff;color:#4f7257;padding:8px 10px;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
 @media(max-width:650px){.ibtida-field-grid,.ibtida-saved-group dl{grid-template-columns:1fr}.ibtida-form-heading{align-items:flex-start}}
+
+.ibtida-model-select{max-width:460px;padding:13px;border:1px solid #dfe8dc;border-radius:9px;background:#f7faf5}
+.ibtida-model-label{display:inline-block;margin-top:7px;padding:5px 8px;border-radius:99px;background:#edf5ec;color:#426d49;font:700 10px 'DM Sans',sans-serif}
+.ibtida-field-label{color:#5b6b5e;font-size:10px;font-weight:700;line-height:1.4}
+.ibtida-tick-choice{display:inline-flex;align-items:center;gap:8px;min-height:35px;color:#506452;font:600 11px 'DM Sans',sans-serif;cursor:pointer}
+.ibtida-tick-choice input{width:16px;height:16px;accent-color:#4d8059}
+.ibtida-tick-quantity{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ibtida-tick-quantity>input{width:110px;border:1px solid #e2e8e0;border-radius:7px;padding:9px;color:#35483a;font:11px 'DM Sans',sans-serif}
+.ibtida-field-check,.ibtida-field-checkQuantity{padding:9px;border:1px solid #e9ede7;border-radius:8px;background:#fff}
+.ibtida-field-check .ibtida-field-label,.ibtida-field-checkQuantity .ibtida-field-label{margin-bottom:4px}
