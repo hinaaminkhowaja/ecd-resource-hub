@@ -5,6 +5,7 @@ import {
   Settings2, Shapes, Sofa, Sparkles, Trash2, UsersRound, X,
 } from 'lucide-react';
 import recDirectory from './data/recs.json';
+import ibtidaClassroomsEncoded from './data/ibtida-classrooms.json.gz.b64?raw';
 import './management.css';
 import './receipts.css';
 
@@ -30,6 +31,14 @@ const resourceIcons = {
 
 const colors = ['mint', 'peach', 'lavender', 'yellow', 'blue', 'pink'];
 const regions = [...new Set(recDirectory.map((row) => row.region))].sort();
+
+async function loadIbtidaClassroomRecords() {
+  const binary = window.atob(ibtidaClassroomsEncoded.trim());
+  const compressed = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const decompressed = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const data = await new Response(decompressed).json();
+  return Array.isArray(data.records) ? data.records : [];
+}
 const ibtidaResource = {
   id: SYSTEM_RESOURCE_ID,
   title: 'Ibtida Guidebook',
@@ -89,6 +98,7 @@ function App() {
   const [resources, setResources] = useState(() => readLocalList(RESOURCE_STORAGE_KEY));
   const [receipts, setReceipts] = useState(() => readLocalList(RECEIPT_STORAGE_KEY));
   const [requests, setRequests] = useState(() => readLocalList('ecd-resource-hub.requests'));
+  const [ibtidaClassroomRecords, setIbtidaClassroomRecords] = useState([]);
   const [panel, setPanel] = useState('home');
   const [active, setActive] = useState('All resources');
   const [query, setQuery] = useState('');
@@ -121,6 +131,14 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem('ecd-resource-hub.requests', JSON.stringify(requests));
   }, [requests]);
+
+  useEffect(() => {
+    let active = true;
+    loadIbtidaClassroomRecords().then((records) => {
+      if (active) setIbtidaClassroomRecords(records);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -260,7 +278,7 @@ function App() {
           <p>{currentPanel?.description}</p>
         </section>
 
-        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters />}
+        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} />}
         {panel === 'access' && <DataPanel title="ECED Access & Enrollment" storageKey="ecd-resource-hub.access-data" />}
 
         {panel === 'materials' && <section className="library-section panel-section">
@@ -322,7 +340,7 @@ function findRecordField(record, candidates) {
   return key ? String(record[key] ?? '').trim() : '';
 }
 
-function DataPanel({ title, storageKey, showRecClassFilters = false }) {
+function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecords = [] }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
   const [region, setRegion] = useState('');
@@ -335,6 +353,7 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
   const columns = rows.length ? Object.keys(rows[0]) : [];
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === region).map((row) => row.localBoard))].sort(), [region]);
   const recOptions = useMemo(() => recDirectory.filter((row) => row.region === region && row.localBoard === localBoard), [region, localBoard]);
+  const sourceRecord = showRecClassFilters ? sourceRecords.find((record) => record.region === region && record.localBoard === localBoard && record.recName === recName) : null;
   const classOptions = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
 
   useEffect(() => {
@@ -416,8 +435,41 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
     </div>}
     {message && <p className="data-import-message">{message}</p>}
     {showRecClassFilters && selectedClasses.includes('Ibtida') && rows.length > 0 && <div className="classroom-review-banner"><div><b>Ibtida classroom data</b><span>{reviewedAt ? 'Review confirmed ' + new Date(reviewedAt).toLocaleString() : 'Review the displayed records, make any needed edits, then confirm.'}</span></div><button type="button" className="confirm-review-button" onClick={confirmReview} disabled={editingIndex !== null}>{reviewedAt ? 'Confirm again' : 'Confirm review'}</button></div>}
-    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} />}
+    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <><IbtidaClassroomHistory record={sourceRecord} /><IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} sourceRecord={sourceRecord} /></>}
     {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{showRecClassFilters && <th>Review</th>}</tr></thead><tbody>{visibleRows.map(({ record, index }) => <tr key={index}>{columns.map((column) => <td key={column}>{editingIndex === index ? <input className="data-cell-input" aria-label={column} value={draftRecord?.[column] ?? ''} onChange={(event) => setDraftRecord((current) => ({ ...current, [column]: event.target.value }))} /> : record[column]}</td>)}{showRecClassFilters && <td className="data-row-actions">{editingIndex === index ? <><button type="button" onClick={saveEditedRecord}>Save</button><button type="button" className="cancel-edit-button" onClick={() => { setEditingIndex(null); setDraftRecord(null); }}>Cancel</button></> : <button type="button" onClick={() => beginEdit(index, record)}>Edit</button>}</td>}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Import the Ibtida classroom data file when it is available to populate this panel.'}</span></div>}
+  </section>;
+}
+
+function historicalEntries(value, prefix = '') {
+  if (value === null || value === undefined || value === '') return [];
+  if (Array.isArray(value)) return value.flatMap((item, index) => historicalEntries(item, prefix ? prefix + ' ' + (index + 1) : 'Item ' + (index + 1)));
+  if (typeof value === 'object') return Object.entries(value).flatMap(([key, child]) => historicalEntries(child, prefix ? prefix + ' · ' + key : key));
+  return [[prefix, String(value)]];
+}
+
+function historicalLabel(value) {
+  return String(value).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function IbtidaClassroomHistory({ record }) {
+  if (!record) return <section className="ibtida-history-empty"><b>No matching historical workbook row</b><span>This REC remains available for a new classroom profile.</span></section>;
+  const sections = [
+    { title: 'At initiation' + (record.initiated?.year ? ' · ' + record.initiated.year : ''), data: record.initiated },
+    ...(record.assessments2023 || []).map((assessment, index) => ({
+      title: '2023 assessment' + ((record.assessments2023.length > 1 ? ' ' + (index + 1) : '') + (assessment.assessedOn ? ' · ' + assessment.assessedOn : '')),
+      data: assessment,
+      note: [assessment.sourceLocationLabel, assessment.matchNote].filter(Boolean).join(' · '),
+    })),
+    { title: 'Sustainability' + (record.sustainability?.year ? ' · ' + record.sustainability.year : ''), data: record.sustainability },
+    { title: 'REPO follow-up' + (record.repo?.year ? ' · ' + record.repo.year : ''), data: record.repo },
+  ].filter((section) => section.data && Object.keys(section.data).length);
+  return <section className="ibtida-history-panel">
+    <div className="ibtida-history-heading"><div><div className="eyebrow">HISTORICAL CLASSROOM RECORD</div><h3>Workbook information for this REC</h3><p>Review these source records before updating the classroom profile below.</p></div><span>{(record.assessments2023 || []).length} assessment{(record.assessments2023 || []).length === 1 ? '' : 's'}</span></div>
+    <div className="ibtida-history-grid">{sections.map((section) => {
+      const entries = historicalEntries(section.data);
+      return <article className="ibtida-history-card" key={section.title}><h4>{section.title}</h4>{section.note && <p className="ibtida-history-source">{section.note}</p>}<dl>{entries.map(([label, value], index) => <div key={label + index}><dt>{historicalLabel(label)}</dt><dd>{value}</dd></div>)}</dl></article>;
+    })}</div>
+    <p className="ibtida-history-source-note">These historical workbook details are shown for reference. The editable profile is saved separately in this browser.</p>
   </section>;
 }
 
@@ -540,11 +592,15 @@ function displayIbtidaValue(profile, field) {
   return profile[field.id] || 'Not recorded';
 }
 
-function IbtidaClassroomForm({ region, localBoard, recName }) {
+function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   const profileId = [region, localBoard, recName].join('::');
   const [profile, setProfile] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId] || {}; }
-    catch { return {}; }
+    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId] || sourceRecord?.prefill || {}; }
+    catch { return sourceRecord?.prefill || {}; }
+  });
+  const [hasSavedProfile, setHasSavedProfile] = useState(() => {
+    try { return Boolean(JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId]); }
+    catch { return false; }
   });
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
   const [message, setMessage] = useState('');
@@ -572,6 +628,7 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
       allProfiles[profileId] = { ...profile, updatedAt: new Date().toISOString(), reviewedAt: '' };
       window.localStorage.setItem('ecd-resource-hub.ibtida-classrooms', JSON.stringify(allProfiles));
       setProfile(allProfiles[profileId]);
+      setHasSavedProfile(true);
       setIsEditing(false);
       setMessage('Ibtida classroom details saved. Review the details and confirm when ready.');
     } catch {
@@ -603,6 +660,7 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
 
   return <section className="panel-section ibtida-classroom-form">
     <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p>{!isEditing && <small className="ibtida-model-label">{profile.model}</small>}</div>{!isEditing && <button type="button" className="edit-ibtida-button" onClick={() => setIsEditing(true)}><Pencil size={14} />Edit details</button>}</div>
+    {sourceRecord && !hasSavedProfile && <p className="ibtida-prefill-notice">Prefilled from {sourceRecord.prefillSourceLabel || 'the historical workbook data'}. Review or edit these details, then save and confirm.</p>}
     {!isEditing && profile.reviewedAt && <p className="ibtida-confirmed-status">Confirmed {new Date(profile.reviewedAt).toLocaleString()}</p>}
     {message && <p className="data-import-message">{message}</p>}
     {isEditing ? <form className="ibtida-groups-form" onSubmit={(event) => { event.preventDefault(); saveProfile(); }}>
