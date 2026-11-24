@@ -606,7 +606,13 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
 
   useEffect(() => {
-    if (!sourceRecord?.prefill || hasSavedProfile || Object.keys(profile).length) return;
+    if (!sourceRecord?.prefill) return;
+    if (hasSavedProfile) {
+      const missingFields = Object.entries(sourceRecord.prefill).filter(([field]) => !Object.hasOwn(profile, field));
+      if (missingFields.length) setProfile((current) => ({ ...Object.fromEntries(missingFields), ...current }));
+      return;
+    }
+    if (Object.keys(profile).length) return;
     setProfile(sourceRecord.prefill);
     setIsEditing(false);
   }, [sourceRecord, hasSavedProfile, profile]);
