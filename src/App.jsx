@@ -426,10 +426,9 @@ const ibtidaBasicFields = [
   { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
   { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
   { id: 'dailyDuration', label: 'Time duration per day for Ibtida class' },
+  { id: 'classTimings', label: 'Time of classes' },
   { id: 'femaleStudents', label: 'Number of female students', type: 'number' },
   { id: 'maleStudents', label: 'Number of male students', type: 'number' },
-  { id: 'trainedTeachers', label: 'Number of trained teachers', type: 'number' },
-  { id: 'untrainedTeachers', label: 'Number of untrained teachers', type: 'number' },
   { id: 'modelFunctioning', label: 'Is the model functioning?', type: 'yesno' },
   { id: 'curriculumGuidelines', label: 'Ibtida curriculum guidelines are available', type: 'yesno' },
   { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
@@ -437,6 +436,7 @@ const ibtidaBasicFields = [
   { id: 'overallObservation', label: 'Overall observation about the Ibtida programme', type: 'textarea' },
   { id: 'challenges', label: 'Challenges faced in the Ibtida programme', type: 'textarea' },
 ];
+const ibtidaTeachersGroup = { title: 'Teacher details & training', fields: [] };
 const ibtidaRoomsGroup = {
   title: 'Rooms & premises',
   fields: [
@@ -501,7 +501,6 @@ const ibtidaWeekendRoomsGroup = {
     { id: 'classConducted', label: 'Ibtida class is conducted at this REC', type: 'yesno' },
     { id: 'classConductedSchedule', label: 'Ibtida class day and timings' },
     { id: 'weekendClassDay', label: 'Day for weekend classes' },
-    { id: 'classTimings', label: 'Class timings' },
   ],
 };
 const ibtidaMultigradeGroup = {
@@ -521,7 +520,7 @@ const ibtidaMultigradeGroup = {
 };
 
 function ibtidaGroupsForModel(model) {
-  const groups = [{ title: 'Class profile & staffing', fields: ibtidaBasicFields }];
+  const groups = [{ title: 'Class profile & staffing', fields: ibtidaBasicFields }, ibtidaTeachersGroup];
   if (model === 'Regular model' || model === 'Regular model with AKES') {
     groups.push(ibtidaRoomsGroup, ibtidaFurnitureGroup, ibtidaKitGroup);
   } else if (model === 'Weekend model') {
@@ -553,6 +552,18 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
 
   function update(field, value) {
     setProfile((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateTeacher(index, field, value) {
+    setProfile((current) => ({ ...current, teachers: (current.teachers || []).map((teacher, teacherIndex) => teacherIndex === index ? { ...teacher, [field]: value } : teacher) }));
+  }
+
+  function addTeacher() {
+    setProfile((current) => ({ ...current, teachers: [...(current.teachers || []), { name: '', itrebTraining: '', otherTraining: '', experienceYears: '' }] }));
+  }
+
+  function removeTeacher(index) {
+    setProfile((current) => ({ ...current, teachers: (current.teachers || []).filter((_, teacherIndex) => teacherIndex !== index) }));
   }
 
   function saveProfile() {
@@ -596,10 +607,20 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
     {message && <p className="data-import-message">{message}</p>}
     {isEditing ? <form className="ibtida-groups-form" onSubmit={(event) => { event.preventDefault(); saveProfile(); }}>
       <label className="form-field ibtida-model-select">Ibtida model<select required value={profile.model || ''} onChange={(event) => update('model', event.target.value)}><option value="">Select a model</option>{ibtidaModels.map((model) => <option key={model}>{model}</option>)}</select></label>
-      {groups.map((group) => <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}</div>)}</div></fieldset>)}
+      {groups.map((group) => group.title === 'Teacher details & training' ? <fieldset className="ibtida-field-group teacher-details-group" key={group.title}><legend>{group.title}</legend>
+        {(profile.teachers || []).map((teacher, index) => <div className="teacher-record" key={index}><div className="teacher-record-heading"><b>Teacher {index + 1}</b><button type="button" className="teacher-remove-button" onClick={() => removeTeacher(index)}>Remove</button></div>
+          <div className="ibtida-field-grid">
+            <label className="form-field">Teacher name<input value={teacher.name || ''} onChange={(event) => updateTeacher(index, 'name', event.target.value)} /></label>
+            <label className="form-field">Training attended through ITREB<textarea rows="2" value={teacher.itrebTraining || ''} onChange={(event) => updateTeacher(index, 'itrebTraining', event.target.value)} /></label>
+            <label className="form-field">Any other training<textarea rows="2" value={teacher.otherTraining || ''} onChange={(event) => updateTeacher(index, 'otherTraining', event.target.value)} /></label>
+            <label className="form-field">Years of experience<input type="number" min="0" step="0.5" value={teacher.experienceYears || ''} onChange={(event) => updateTeacher(index, 'experienceYears', event.target.value)} /></label>
+          </div>
+        </div>)}
+        <button type="button" className="add-teacher-button" onClick={addTeacher}><Plus size={14} />Add teacher</button>
+      </fieldset> : <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}</div>)}</div></fieldset>)}
       <div className="dialog-actions"><button className="add-resource-button" type="submit"><FileText size={15} />Save classroom details</button></div>
     </form> : <>
-      <div className="ibtida-saved-groups">{groups.map((group) => <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd></div>)}</dl></section>)}</div>
+      <div className="ibtida-saved-groups">{groups.map((group) => group.title === 'Teacher details & training' ? <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3>{(profile.teachers || []).length ? <div className="teacher-summary-list">{profile.teachers.map((teacher, index) => <article className="teacher-summary" key={index}><b>{teacher.name || 'Teacher ' + (index + 1)}</b><span>ITREB training: {teacher.itrebTraining || 'Not recorded'}</span><span>Other training: {teacher.otherTraining || 'Not recorded'}</span><span>Experience: {teacher.experienceYears ? teacher.experienceYears + ' years' : 'Not recorded'}</span></article>)}</div> : <p className="teacher-empty">No teachers recorded yet.</p>}</section> : <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd></div>)}</dl></section>)}</div>
       <div className="dialog-actions"><button type="button" className="confirm-review-button" onClick={confirmProfile}>{profile.reviewedAt ? 'Confirm again' : 'Confirm details'}</button></div>
     </>}
   </section>;
