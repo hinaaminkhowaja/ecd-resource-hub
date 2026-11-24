@@ -88,6 +88,8 @@ function downloadCalendarReminder(receipt, stageNumber, label, deadline) {
 function App() {
   const [resources, setResources] = useState(() => readLocalList(RESOURCE_STORAGE_KEY));
   const [receipts, setReceipts] = useState(() => readLocalList(RECEIPT_STORAGE_KEY));
+  const [requests, setRequests] = useState(() => readLocalList('ecd-resource-hub.requests'));
+  const [panel, setPanel] = useState('home');
   const [active, setActive] = useState('All resources');
   const [query, setQuery] = useState('');
   const [format, setFormat] = useState('All formats');
@@ -99,6 +101,15 @@ function App() {
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
+  const panels = [
+    { id: 'classrooms', title: 'Classroom Data', description: 'View and import ECED classroom records.', icon: BookOpen },
+    { id: 'access', title: 'ECED Access & Enrollment', description: 'View and import ECED access and enrollment information.', icon: UsersRound },
+    { id: 'materials', title: 'Materials Bank', description: 'Browse curriculum, activity books, plans, kits, and furniture.', icon: LibraryBig },
+    { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
+    { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
+  ];
+  const currentPanel = panels.find((item) => item.id === panel);
+
   useEffect(() => {
     window.localStorage.setItem(RESOURCE_STORAGE_KEY, JSON.stringify(resources));
   }, [resources]);
@@ -106,6 +117,10 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(RECEIPT_STORAGE_KEY, JSON.stringify(receipts));
   }, [receipts]);
+
+  useEffect(() => {
+    window.localStorage.setItem('ecd-resource-hub.requests', JSON.stringify(requests));
+  }, [requests]);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +140,7 @@ function App() {
   const allResources = useMemo(() => [ibtidaResource, ...resources], [resources]);
   const filtered = useMemo(() => allResources.filter((item) => {
     const matchesCategory = active === 'All resources' || item.type === active;
-    const matchesSearch = `${item.title} ${item.description} ${item.type}`.toLowerCase().includes(query.toLowerCase());
+    const matchesSearch = (item.title + ' ' + item.description + ' ' + item.type).toLowerCase().includes(query.toLowerCase());
     const matchesFormat = format === 'All formats' || item.format === format;
     return matchesCategory && matchesSearch && matchesFormat;
   }), [active, query, format, allResources]);
@@ -138,19 +153,19 @@ function App() {
   function saveResource(form) {
     if (editingResource) {
       setResources((current) => current.map((item) => item.id === editingResource.id ? { ...form, id: item.id } : item));
-      setNotice('Resource updated.');
+      setNotice('Material updated.');
     } else {
       setResources((current) => [...current, { ...form, id: crypto.randomUUID() }]);
-      setNotice('Resource added.');
+      setNotice('Material added to the bank.');
     }
     setResourceDialogOpen(false);
     setEditingResource(null);
   }
 
   function deleteResource(resource) {
-    if (!window.confirm(`Delete “${resource.title}” from this library?`)) return;
+    if (!window.confirm('Delete "' + resource.title + '" from the materials bank?')) return;
     setResources((current) => current.filter((item) => item.id !== resource.id));
-    setNotice('Resource deleted.');
+    setNotice('Material deleted.');
   }
 
   async function saveReceipt(form, existingId, createAnother = false) {
@@ -158,13 +173,15 @@ function App() {
     let receipt = {
       ...existing,
       ...form,
-      id: existingId || `IBT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+      id: existingId || 'IBT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     try {
       const response = await fetch('/api/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receipt }) });
-      if (response.ok) receipt = (await response.json()).receipt || receipt;
+      if (!response.ok) throw new Error('Receipt service unavailable');
+      const result = await response.json();
+      receipt = result.receipt || receipt;
     } catch {
       // Keep the receipt in the browser if the receipt service is offline.
     }
@@ -177,54 +194,178 @@ function App() {
       setReceiptDialogInstance((current) => current + 1);
       setSelectedReceipt(null);
       setReceiptDialogOpen(true);
-      setNotice(`Receipt ${receipt.id} saved. You can continue its next stage later.`);
+      setNotice('Receipt ' + receipt.id + ' saved. You can continue its next stage later.');
     } else if (receipt.stage === 4) setSelectedReceipt(receipt);
-    else setNotice(`Stage ${receipt.stage} saved.`);
+    else setNotice('Stage ' + receipt.stage + ' saved.');
   }
 
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <a className="brand" href="#home" onClick={() => setActive('All resources')}>
-        <span className="brand-mark"><Sparkles size={20} /></span>
-        <span><strong>ecd</strong><small>RESOURCE HUB</small></span>
-      </a>
-      <div className="workspace-label">WORKSPACE</div>
-      <button className="workspace"><span className="workspace-avatar">R</span><span><b>RECS collection</b><small>Resource library</small></span><ChevronDown size={16} /></button>
-      <div className="nav-heading">LIBRARY</div>
-      <nav>{categories.map(({ name, icon: Icon }) => <button key={name} onClick={() => setActive(name)} className={`nav-item ${active === name ? 'selected' : ''}`}><Icon size={18} /><span>{name}</span>{name === 'All resources' && <span className="nav-count">{allResources.length}</span>}</button>)}</nav>
-      <div className="nav-heading tools-heading">YOUR SPACE</div>
-      <button className="nav-item" onClick={() => { setActive('All resources'); openAddResource(); }}><Plus size={18} /><span>Add a resource</span></button>
-      <div className="sidebar-bottom">
-        <div className="sync-card"><span className="sync-icon"><FolderOpen size={17} /></span><div><b>Connect your library</b><p>Link OneDrive to browse your RECS files.</p><button onClick={() => setNotice('OneDrive connection is planned. The current REC directory is a snapshot from master sheet.xlsx.')}>Set up connection <span>→</span></button></div></div>
-        <button className="nav-item muted" onClick={() => setNotice('Help and support will be added to the resource hub.')}><CircleHelp size={18} /><span>Help & support</span></button>
-        <button className="nav-item muted" onClick={() => setNotice('Settings will be available as the hub grows.')}><Settings2 size={18} /><span>Settings</span></button>
-        <div className="profile"><div className="profile-avatar">H</div><div><b>RECS team</b><small>ECD programme</small></div><ChevronDown size={16} /></div>
-      </div>
-    </aside>
+  function createRequest(form) {
+    const request = {
+      ...form,
+      id: 'REQ-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6),
+      status: 'Submitted',
+      createdAt: new Date().toISOString(),
+    };
+    setRequests((current) => [request, ...current]);
+    setNotice('Request ticket ' + request.id + ' created.');
+  }
 
-    <main className="main-area">
-      <header className="topbar"><div className="breadcrumb">RECS collection <span>/</span> <b>{active}</b></div><div className="top-actions"><span className="online-dot"></span><span className="connection-text">Library workspace</span><button className="help-button" onClick={() => setNotice('Create a delivery receipt for curriculum, activity books, plans, furniture, or resource kits.')}>?</button></div></header>
-      <div className="content">
-        <section className="welcome-row"><div><div className="eyebrow">EARLY CHILDHOOD DEVELOPMENT</div><h1>Resources for every <em>little learner.</em></h1><p className="intro">Your RECS collection of ECD materials, teaching guides, and classroom essentials.</p></div><div className="welcome-art" aria-hidden="true"><span className="sun"></span><span className="arch"><i></i><b></b><small></small></span><span className="plant">✳</span><span className="book-stack"><i></i><b></b><small></small></span></div></section>
-        <section className="stats-row"><div className="stat-card"><span className="stat-icon mint-icon"><LibraryBig size={19} /></span><div><b>{allResources.length}</b><small>resources in library</small></div></div><div className="stat-card"><span className="stat-icon peach-icon"><UsersRound size={19} /></span><div><b>{categories.length - 1}</b><small>resource collections</small></div></div><div className="stat-note"><span className="note-star">✳</span><span><b>Made for curious minds</b><small>Manage ECD materials and track delivery handoffs.</small></span></div></section>
-        <section className="dashboard-receipt-launch"><div className="receipt-launch-copy"><span className="receipt-launch-icon"><FileText size={23} /></span><div><div className="eyebrow">DELIVERY RECEIPTS</div><h2>Track ECD resource deliveries</h2><p>Create a receipt for guidebooks, activity books, plans, furniture, and resource kits.</p></div></div><button className="receipt-launch-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}><Plus size={17} />Create a receipt</button></section>
-        {receipts.length > 0 && <section className="receipt-history dashboard-delivery-history"><div className="history-heading"><div><div className="eyebrow">DELIVERY WORKFLOW</div><h3>Recent delivery receipts</h3></div><span>{receipts.length} saved</span></div><div className="history-list">{receipts.slice(0, 5).map((receipt) => <article className="delivery-workflow-item" key={receipt.id}><button className="history-row" onClick={() => { if ((receipt.stage ?? 4) >= 4) setSelectedReceipt(receipt); else { setEditingReceipt(receipt); setReceiptDialogOpen(true); } }}><span><b>{receipt.resourceName || receipt.resourceCategory || 'ECD resource'}</b><small>{receipt.region}{receipt.localBoard ? ` · ${receipt.localBoard}` : ''}{receipt.recName ? ` · ${receipt.recName}` : ''}</small></span><span className="history-quantity">{(receipt.stage ?? 4) >= 4 ? (receipt.recAcknowledgement === 'not-received' ? 'Not received · follow up' : receipt.recAcknowledgement === 'received-after-deadline' ? 'Received after deadline' : 'Complete') : `Continue · stage ${receipt.stage} of 4`}</span><span className="history-id">{receipt.id}</span></button><ReceiptTimeline receipt={receipt} /></article>)}</div></section>}
-        <section className="library-section">
-          <div className="section-heading"><div><div className="eyebrow">EXPLORE THE COLLECTION</div><h2>{active}</h2></div><button className="add-resource-button" onClick={openAddResource}><Plus size={16} /> Add resource</button></div>
-          <div className="toolbar"><label className="search-box"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search resources, topics, or materials…" /></label><label className="format-select"><span>Type</span><select value={format} onChange={(event) => setFormat(event.target.value)}><option>All formats</option><option>PDF</option><option>Guide</option><option>Inventory</option><option>Receipt form</option><option>Other</option></select><ChevronDown size={14} /></label></div>
-          <div className="results-line"><span>{filtered.length} resources</span><span>REC directory <span className="tiny-dot">•</span> {regions.length} regions · {recDirectory.length.toLocaleString()} RECs</span></div>
-          {filtered.length ? <div className="resource-grid">{filtered.map((item, index) => { const Icon = resourceIcons[item.type] || Shapes; const isBuiltIn = item.id === SYSTEM_RESOURCE_ID; return <article className={`resource-card ${isBuiltIn ? 'guidebook-card' : ''}`} key={item.id}><div className={`card-art ${item.color || colors[index % colors.length]}`}><div className="resource-symbol"><Icon size={27} strokeWidth={1.5} /></div><span className="age-pill">{item.age || 'ECD'}</span></div><div className="card-body"><div className="card-type">{item.type}</div><h3>{isBuiltIn ? <button className="card-title-button" onClick={() => setReceiptDialogOpen(true)}>{item.title}</button> : item.title}</h3><p>{item.description || 'No description added'}</p><div className="card-footer"><span><FileText size={14} />{item.format}</span>{isBuiltIn ? <button className="receipt-link" onClick={() => setReceiptDialogOpen(true)}>Create receipt <span>→</span></button> : <div className="resource-actions"><button onClick={() => { setEditingResource(item); setResourceDialogOpen(true); }} aria-label={`Edit ${item.title}`}><Pencil size={13} /> Edit</button><button className="delete-action" onClick={() => deleteResource(item)} aria-label={`Delete ${item.title}`}><Trash2 size={13} /> Delete</button></div>}</div></div></article>; })}</div> : <div className="empty-state"><Search size={24} /><b>No matching resources</b><span>Try another search or choose a different collection.</span></div>}
-          <div className="source-note"><span className="source-mark"><FolderOpen size={17} /></span><span><b>REC dropdown source</b><small>Region, local board, and REC names imported from master sheet.xlsx. OneDrive refresh is not connected yet.</small></span><button onClick={() => setNotice('The app currently uses the imported master sheet snapshot. OneDrive integration can keep it current later.')}>Source details <span>→</span></button></div>
+  function updateRequestStatus(requestId, status) {
+    setRequests((current) => current.map((request) => request.id === requestId ? { ...request, status } : request));
+  }
+
+  return <div className="app-shell panel-app">
+    <header className="panel-topbar">
+      <button type="button" className="brand panel-brand" onClick={() => setPanel('home')}>
+        <span className="brand-mark"><Sparkles size={20} /></span>
+        <span><strong>ECED</strong><small>RESOURCE HUB</small></span>
+      </button>
+      {panel !== 'home' && <button type="button" className="all-panels-button" onClick={() => setPanel('home')}>All panels</button>}
+    </header>
+
+    <main className="panel-main">
+      {panel === 'home' ? <>
+        <section className="panel-welcome">
+          <div className="eyebrow">EARLY CHILDHOOD EDUCATION</div>
+          <h1>ECED Resource Hub</h1>
+          <p>Choose an area to manage classroom information, materials, requests, and deliveries.</p>
         </section>
-        <footer>ECD RESOURCE HUB <span>·</span> A home for early learning resources</footer>
-      </div>
+        <section className="panel-grid" aria-label="ECED work areas">
+          {panels.map((item) => {
+            const Icon = item.icon;
+            const count = item.id === 'materials' ? allResources.length : item.id === 'requests' ? requests.length : item.id === 'receipts' ? receipts.length : null;
+            return <button type="button" className={'panel-card panel-card-' + item.id} key={item.id} onClick={() => setPanel(item.id)}>
+              <span className="panel-card-icon"><Icon size={23} /></span>
+              <span className="panel-card-title">{item.title}</span>
+              <span className="panel-card-description">{item.description}</span>
+              {count !== null && <span className="panel-card-count">{count} {item.id === 'materials' ? 'materials' : item.id === 'requests' ? 'tickets' : 'receipts'}</span>}
+            </button>;
+          })}
+        </section>
+      </> : <>
+        <section className="panel-page-heading">
+          <button type="button" className="back-to-panels" onClick={() => setPanel('home')}>← All panels</button>
+          <div className="eyebrow">ECED RESOURCE HUB</div>
+          <h1>{currentPanel?.title}</h1>
+          <p>{currentPanel?.description}</p>
+        </section>
+
+        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" />}
+        {panel === 'access' && <DataPanel title="ECED Access & Enrollment" storageKey="ecd-resource-hub.access-data" />}
+
+        {panel === 'materials' && <section className="library-section panel-section">
+          <div className="panel-action-row"><p>Manage the teaching and classroom materials available to RECs.</p><button className="add-resource-button" onClick={openAddResource}><Plus size={16} />Add material</button></div>
+          <div className="material-category-row">{categories.map(({ name }) => <button key={name} className={'category-chip ' + (active === name ? 'selected' : '')} onClick={() => setActive(name)}>{name}</button>)}</div>
+          <div className="toolbar"><label className="search-box"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search materials…" /></label><label className="format-select"><span>Type</span><select value={format} onChange={(event) => setFormat(event.target.value)}><option>All formats</option><option>PDF</option><option>Guide</option><option>Inventory</option><option>Receipt form</option><option>Other</option></select><ChevronDown size={14} /></label></div>
+          <div className="results-line"><span>{filtered.length} materials</span><span>REC source · {regions.length} regions · {recDirectory.length.toLocaleString()} RECs</span></div>
+          {filtered.length ? <div className="resource-grid">{filtered.map((item, index) => { const Icon = resourceIcons[item.type] || Shapes; const isBuiltIn = item.id === SYSTEM_RESOURCE_ID; return <article className={'resource-card ' + (isBuiltIn ? 'guidebook-card' : '')} key={item.id}><div className={'card-art ' + (item.color || colors[index % colors.length])}><div className="resource-symbol"><Icon size={27} strokeWidth={1.5} /></div><span className="age-pill">{item.age || 'ECD'}</span></div><div className="card-body"><div className="card-type">{item.type}</div><h3>{isBuiltIn ? <button className="card-title-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}>{item.title}</button> : item.title}</h3><p>{item.description || 'No description added'}</p><div className="card-footer"><span><FileText size={14} />{item.format}</span>{isBuiltIn ? <button className="receipt-link" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}>Create receipt <span>→</span></button> : <div className="resource-actions"><button onClick={() => { setEditingResource(item); setResourceDialogOpen(true); }} aria-label={'Edit ' + item.title}><Pencil size={13} />Edit</button><button className="delete-action" onClick={() => deleteResource(item)} aria-label={'Delete ' + item.title}><Trash2 size={13} />Delete</button></div>}</div></div></article>; })}</div> : <div className="empty-state"><Search size={24} /><b>No materials found</b><span>Try another search or choose a different collection.</span></div>}
+          <div className="source-note"><span className="source-mark"><FolderOpen size={17} /></span><span><b>RECS directory</b><small>Region, local board, and REC choices continue to use the existing recs.json source file.</small></span></div>
+        </section>}
+
+        {panel === 'requests' && <RequestPanel requests={requests} onCreate={createRequest} onStatusChange={updateRequestStatus} />}
+
+        {panel === 'receipts' && <section className="panel-section">
+          <div className="panel-action-row"><p>Create and manage four-stage receipts for resource deliveries.</p><button className="receipt-launch-button" onClick={() => { setEditingReceipt(null); setReceiptDialogOpen(true); }}><Plus size={17} />Create a delivery receipt</button></div>
+          {receipts.length > 0 ? <div className="history-list panel-receipt-list">{receipts.map((receipt) => <article className="delivery-workflow-item" key={receipt.id}><button className="history-row" onClick={() => { if ((receipt.stage ?? 4) >= 4) setSelectedReceipt(receipt); else { setEditingReceipt(receipt); setReceiptDialogOpen(true); } }}><span><b>{receipt.resourceName || receipt.resourceCategory || 'ECD resource'}</b><small>{receipt.region}{receipt.localBoard ? ' · ' + receipt.localBoard : ''}{receipt.recName ? ' · ' + receipt.recName : ''}</small></span><span className="history-quantity">{(receipt.stage ?? 4) >= 4 ? (receipt.recAcknowledgement === 'not-received' ? 'Not received · follow up' : receipt.recAcknowledgement === 'received-after-deadline' ? 'Received after deadline' : 'Complete') : 'Continue · stage ' + receipt.stage + ' of 4'}</span><span className="history-id">{receipt.id}</span></button><ReceiptTimeline receipt={receipt} /></article>)}</div> : <div className="empty-state"><FileText size={24} /><b>No delivery receipts yet</b><span>Create a receipt to record dispatch and acknowledgement at each stage.</span></div>}
+        </section>}
+      </>}
+
+      {resourceDialogOpen && <ResourceDialog initial={editingResource} onClose={() => { setResourceDialogOpen(false); setEditingResource(null); }} onSave={saveResource} />}
+      {receiptDialogOpen && <ReceiptDialog key={(editingReceipt?.id || 'new') + '-' + receiptDialogInstance} initial={editingReceipt} onClose={() => { setReceiptDialogOpen(false); setEditingReceipt(null); }} onSave={saveReceipt} />}
+      {selectedReceipt && <ReceiptPreview receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />}
+      {notice && <div className="toast" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
     </main>
-    {resourceDialogOpen && <ResourceDialog initial={editingResource} onClose={() => { setResourceDialogOpen(false); setEditingResource(null); }} onSave={saveResource} />}
-    {receiptDialogOpen && <ReceiptDialog key={`${editingReceipt?.id || 'new'}-${receiptDialogInstance}`} initial={editingReceipt} onClose={() => { setReceiptDialogOpen(false); setEditingReceipt(null); }} onSave={saveReceipt} />}
-    {selectedReceipt && <ReceiptPreview receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />}
-    {notice && <div className="toast" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
   </div>;
 }
+
+function parseCsvRows(text) {
+  const source = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < source.length; i += 1) {
+    const character = source[i];
+    if (character === '"') {
+      if (quoted && source[i + 1] === '"') { field += '"'; i += 1; }
+      else quoted = !quoted;
+    } else if (character === ',' && !quoted) {
+      row.push(field); field = '';
+    } else if ((character === '\n' || character === '\r') && !quoted) {
+      if (character === '\r' && source[i + 1] === '\n') i += 1;
+      row.push(field); field = '';
+      if (row.some((value) => value.trim())) rows.push(row);
+      row = [];
+    } else field += character;
+  }
+  row.push(field);
+  if (row.some((value) => value.trim())) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows.shift().map((header, index) => header.trim() || 'Column ' + (index + 1));
+  return rows.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] || ''])));
+}
+
+function DataPanel({ title, storageKey }) {
+  const [rows, setRows] = useState(() => readLocalList(storageKey));
+  const [message, setMessage] = useState('');
+  const columns = rows.length ? Object.keys(rows[0]) : [];
+
+  async function importCsv(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = parseCsvRows(await file.text());
+      if (!imported.length) {
+        setMessage('This CSV has no data rows. Check that the first row contains column headings.');
+        return;
+      }
+      setRows(imported);
+      window.localStorage.setItem(storageKey, JSON.stringify(imported));
+      setMessage(imported.length + ' rows loaded. The data is saved in this browser.');
+    } catch {
+      setMessage('The CSV file could not be read.');
+    }
+    event.target.value = '';
+  }
+
+  return <section className="panel-section data-panel">
+    <div className="panel-action-row"><p>Import a CSV exported from Excel to display this information here.</p><label className="csv-import-button"><ArrowDownToLine size={15} />Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv} /></label></div>
+    {message && <p className="data-import-message">{message}</p>}
+    {rows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{rows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>No {title.toLowerCase()} loaded</b><span>Choose an Excel sheet saved as CSV to populate this panel.</span></div>}
+  </section>;
+}
+
+function RequestPanel({ requests, onCreate, onStatusChange }) {
+  const [form, setForm] = useState({ resourceCategory: receiptCategories[0], resourceName: '', region: '', localBoard: '', recName: '', quantity: '', neededBy: '', reason: '' });
+  const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === form.region).map((row) => row.localBoard))].sort(), [form.region]);
+  const recOptions = useMemo(() => recDirectory.filter((row) => row.region === form.region && row.localBoard === form.localBoard), [form.region, form.localBoard]);
+  const today = localDateString();
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function submit(event) {
+    event.preventDefault();
+    onCreate({ ...form, quantity: Number(form.quantity) });
+    setForm({ resourceCategory: receiptCategories[0], resourceName: '', region: '', localBoard: '', recName: '', quantity: '', neededBy: '', reason: '' });
+  }
+
+  return <section className="panel-section request-panel">
+    <form className="request-form" onSubmit={submit}>
+      <h2>Create a requirement ticket</h2>
+      <div className="form-row"><label className="form-field">Resource type<select required value={form.resourceCategory} onChange={(event) => update('resourceCategory', event.target.value)}>{receiptCategories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="form-field">Resource name<input required maxLength={120} value={form.resourceName} onChange={(event) => update('resourceName', event.target.value)} placeholder="Name of requested item" /></label></div>
+      <div className="form-row"><label className="form-field">Region<select required value={form.region} onChange={(event) => setForm((current) => ({ ...current, region: event.target.value, localBoard: '', recName: '' }))}><option value="">Select a region</option>{regions.map((region) => <option key={region}>{region}</option>)}</select></label><label className="form-field">Local Board<select required disabled={!form.region} value={form.localBoard} onChange={(event) => setForm((current) => ({ ...current, localBoard: event.target.value, recName: '' }))}><option value="">Select a local board</option>{boardOptions.map((board) => <option key={board}>{board}</option>)}</select></label></div>
+      <div className="form-row"><label className="form-field">REC<select required disabled={!form.localBoard} value={form.recName} onChange={(event) => update('recName', event.target.value)}><option value="">Select an REC</option>{recOptions.map((row) => <option key={row.recName}>{row.recName}</option>)}</select></label><label className="form-field">Quantity<input type="number" min="1" step="1" required value={form.quantity} onChange={(event) => update('quantity', event.target.value)} /></label></div>
+      <div className="form-row"><label className="form-field">Required by<input type="date" min={today} required value={form.neededBy} onChange={(event) => update('neededBy', event.target.value)} /></label><label className="form-field">Reason or notes<input maxLength={200} value={form.reason} onChange={(event) => update('reason', event.target.value)} placeholder="Optional details" /></label></div>
+      <div className="dialog-actions"><button type="submit" className="add-resource-button"><Plus size={15} />Generate request ticket</button></div>
+    </form>
+    <div className="request-list"><div className="history-heading"><div><div className="eyebrow">REQUEST TRACKER</div><h2>Requirement tickets</h2></div><span>{requests.length} total</span></div>
+      {requests.length ? requests.map((request) => <article className="request-ticket" key={request.id}><div className="request-ticket-heading"><div><b>{request.resourceName}</b><small>{request.resourceCategory} · {request.region} · {request.localBoard} · {request.recName}</small></div><strong>{request.id}</strong></div><div className="request-ticket-details"><span>Quantity: <b>{request.quantity}</b></span><span>Needed by: <b>{request.neededBy}</b></span><label>Status<select value={request.status} onChange={(event) => onStatusChange(request.id, event.target.value)}><option>Submitted</option><option>Under review</option><option>Approved</option><option>Fulfilled</option><option>Declined</option></select></label></div>{request.reason && <p>{request.reason}</p>}</article>) : <div className="empty-state"><Boxes size={24} /><b>No request tickets yet</b><span>Complete the form above to create the first one.</span></div>}
+    </div>
+  </section>;
+}
+
 
 function ResourceDialog({ initial, onClose, onSave }) {
   const [form, setForm] = useState(() => ({
