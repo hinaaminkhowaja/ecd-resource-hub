@@ -77,3 +77,10 @@
 .class-choice input{accent-color:#4d8059}
 .classroom-filter-summary{color:#718073;font:600 10px 'DM Sans',sans-serif}
 @media(max-width:650px){.classroom-location-selects{grid-template-columns:1fr}}
+
+.classroom-review-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;padding:13px 15px;border:1px solid #dbe9d9;border-radius:9px;background:#f2f8f1}
+.classroom-review-banner>div{display:grid;gap:4px}.classroom-review-banner b{color:#3d6244;font:700 12px Manrope,sans-serif}.classroom-review-banner span{color:#708073;font:10px/1.5 'DM Sans',sans-serif}
+.confirm-review-button{border:1px solid #4d8059;border-radius:7px;background:#4d8059;color:#fff;padding:9px 12px;font:700 10px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}.confirm-review-button:disabled{opacity:.55;cursor:not-allowed}
+.data-cell-input{min-width:90px;width:100%;border:1px solid #a8c3a7;border-radius:5px;padding:6px;color:#35483a;font:11px 'DM Sans',sans-serif}
+.data-row-actions{display:flex;gap:8px}.data-row-actions button{border:0;background:transparent;color:#4d8059;font:700 10px 'DM Sans',sans-serif;cursor:pointer}.data-row-actions .cancel-edit-button{color:#8c7770}
+@media(max-width:560px){.classroom-review-banner{align-items:flex-start;flex-direction:column}.data-row-actions{flex-direction:column;gap:5px}}
