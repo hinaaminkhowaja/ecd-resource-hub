@@ -382,7 +382,7 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
       <div className="classroom-filter-summary">{visibleRows.length} classroom records shown{selectedClasses.length ? ' · ' + selectedClasses.length + ' classes selected' : ' · All classes'}</div>
     </div>}
     {message && <p className="data-import-message">{message}</p>}
-    {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{visibleRows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>No {title.toLowerCase()} loaded</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Choose an Excel sheet saved as CSV to populate this panel.'}</span></div>}
+    {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{visibleRows.map((record, index) => <tr key={index}>{columns.map((column) => <td key={column}>{record[column]}</td>)}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Choose an Excel sheet saved as CSV to populate this panel.'}</span></div>}
   </section>;
 }
 function RequestPanel({ requests, onCreate, onStatusChange }) {
