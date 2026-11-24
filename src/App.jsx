@@ -432,6 +432,8 @@ const ibtidaBasicFields = [
   { id: 'untrainedTeachers', label: 'Number of untrained teachers', type: 'number' },
   { id: 'modelFunctioning', label: 'Is the model functioning?', type: 'yesno' },
   { id: 'curriculumGuidelines', label: 'Ibtida curriculum guidelines are available', type: 'yesno' },
+  { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
+  { id: 'teachersConductParwaaz', label: 'Ibtida teachers conduct Parwaaz sessions', type: 'yesno' },
   { id: 'overallObservation', label: 'Overall observation about the Ibtida programme', type: 'textarea' },
   { id: 'challenges', label: 'Challenges faced in the Ibtida programme', type: 'textarea' },
 ];
@@ -517,22 +519,15 @@ const ibtidaMultigradeGroup = {
     { id: 'modelContinues', label: 'The same initiated model continues to be followed', type: 'yesno' },
   ],
 };
-const ibtidaProgrammeGroup = {
-  title: 'Other programme details',
-  fields: [
-    { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
-    { id: 'teachersConductParwaaz', label: 'Ibtida teachers conduct Parwaaz sessions', type: 'yesno' },
-  ],
-};
 
 function ibtidaGroupsForModel(model) {
   const groups = [{ title: 'Class profile & staffing', fields: ibtidaBasicFields }];
   if (model === 'Regular model' || model === 'Regular model with AKES') {
-    groups.push(ibtidaRoomsGroup, ibtidaFurnitureGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+    groups.push(ibtidaRoomsGroup, ibtidaFurnitureGroup, ibtidaKitGroup);
   } else if (model === 'Weekend model') {
-    groups.push(ibtidaWeekendRoomsGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+    groups.push(ibtidaWeekendRoomsGroup, ibtidaKitGroup);
   } else if (model === 'Multigrade model') {
-    groups.push(ibtidaMultigradeGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+    groups.push(ibtidaMultigradeGroup);
   }
   return groups;
 }
