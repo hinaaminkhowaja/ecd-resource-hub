@@ -420,102 +420,131 @@ function DataPanel({ title, storageKey, showRecClassFilters = false }) {
     {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{showRecClassFilters && <th>Review</th>}</tr></thead><tbody>{visibleRows.map(({ record, index }) => <tr key={index}>{columns.map((column) => <td key={column}>{editingIndex === index ? <input className="data-cell-input" aria-label={column} value={draftRecord?.[column] ?? ''} onChange={(event) => setDraftRecord((current) => ({ ...current, [column]: event.target.value }))} /> : record[column]}</td>)}{showRecClassFilters && <td className="data-row-actions">{editingIndex === index ? <><button type="button" onClick={saveEditedRecord}>Save</button><button type="button" className="cancel-edit-button" onClick={() => { setEditingIndex(null); setDraftRecord(null); }}>Cancel</button></> : <button type="button" onClick={() => beginEdit(index, record)}>Edit</button>}</td>}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Import the Ibtida classroom data file when it is available to populate this panel.'}</span></div>}
   </section>;
 }
-const ibtidaFieldGroups = [
-  {
-    title: 'Class profile & staffing',
-    fields: [
-      { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
-      { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
-      { id: 'dailyDuration', label: 'Time duration per day for Ibtida class' },
-      { id: 'femaleStudents', label: 'Number of female students', type: 'number' },
-      { id: 'maleStudents', label: 'Number of male students', type: 'number' },
-      { id: 'trainedTeachers', label: 'Number of trained teachers', type: 'number' },
-      { id: 'untrainedTeachers', label: 'Number of untrained teachers', type: 'number' },
-      { id: 'modelFunctioning', label: 'Is the model functioning?', type: 'yesno' },
-      { id: 'nurseryChildren', label: 'Number of children in Nursery class', type: 'number' },
-    ],
-  },
-  {
-    title: 'Rooms & premises',
-    fields: [
-      { id: 'roomAvailable', label: 'Room is available', type: 'yesno' },
-      { id: 'roomWellPainted', label: 'Room is well painted', type: 'yesno' },
-      { id: 'adequateLight', label: 'Adequate provision of light', type: 'yesno' },
-      { id: 'adequateVentilation', label: 'Adequate provision of ventilation', type: 'yesno' },
-      { id: 'goodFlooring', label: 'Flooring is good to sit on', type: 'yesno' },
-      { id: 'spaceSufficient', label: 'Space is sufficient for a class', type: 'yesno' },
-      { id: 'hallAvailable', label: 'Hall or premises are available', type: 'yesno' },
-      { id: 'classConducted', label: 'Ibtida class is conducted at this REC', type: 'yesno' },
-      { id: 'classConductedSchedule', label: 'Ibtida class day and timings', type: 'text' },
-      { id: 'kitStorageSpace', label: 'Space is available for keeping the resource kit', type: 'yesno' },
-      { id: 'roomAgeAppropriate', label: 'Room is age appropriate for children', type: 'yesno' },
-      { id: 'multigradePremises', label: 'Premises are suitable for a multigrade class', type: 'yesno' },
-      { id: 'multigradePremisesNotes', label: 'Other premises details for multigrade classes' },
-      { id: 'otherClassesSameRoom', label: 'Any other classes conducted in the same room?', type: 'text' },
-      { id: 'ibtidaNurseryMerged', label: 'Is another class merged with Ibtida and Nursery?', type: 'yesno' },
-      { id: 'otherClassSameTime', label: 'Any other class conducted at the same time as Ibtida?', type: 'text' },
-      { id: 'weekendClassDay', label: 'Day for weekend classes', type: 'text' },
-      { id: 'classTimings', label: 'Class timings', type: 'text' },
-      { id: 'parwaazSameRoom', label: 'Are Parwaaz sessions conducted in the same room?', type: 'yesno' },
-    ],
-  },
-  {
-    title: 'Furniture',
-    fields: [
-      { id: 'halfMoonTables', label: 'Half moon tables available (quantity)', type: 'number' },
-      { id: 'tables', label: 'Tables available (quantity)', type: 'number' },
-      { id: 'cushions', label: 'Cushions available (quantity)', type: 'number' },
-      { id: 'seatingArrangement', label: 'Cushions, chairs, or other proper seating (quantity)', type: 'number' },
-      { id: 'shelves', label: 'Shelves available (quantity)', type: 'number' },
-      { id: 'bookRacks', label: 'Book racks available (quantity)', type: 'number' },
-      { id: 'moveableShelves', label: 'Moveable shelves made from low-cost materials available', type: 'yesno' },
-    ],
-  },
-  {
-    title: 'Ibtida resource kit',
-    fields: [
-      { id: 'resourceKitAvailable', label: 'Resource kit is available', type: 'yesno' },
-      { id: 'resourceKitShelves', label: 'Resource kit is kept on shelves', type: 'yesno' },
-      { id: 'resourceKitUsed', label: 'Resource kit is used by students', type: 'yesno' },
-      { id: 'resourceKitCondition', label: 'Condition of the resource kit is good', type: 'yesno' },
-      { id: 'kitJarsBaskets', label: 'Jars and baskets available', type: 'yesno' },
-      { id: 'kitPuzzlesBlocks', label: 'Different puzzles and blocks available', type: 'yesno' },
-      { id: 'kitUtensils', label: 'Utensils available', type: 'yesno' },
-      { id: 'kitFlashcards', label: 'Flashcards available', type: 'yesno' },
-      { id: 'kitAnimalsFruits', label: 'Animals, birds, fruits, and vegetables available', type: 'yesno' },
-      { id: 'kitBalls', label: 'Balls available', type: 'yesno' },
-      { id: 'kitTentHouse', label: 'Tent house available', type: 'yesno' },
-      { id: 'kitLearningBoards', label: 'Learning boards available', type: 'yesno' },
-      { id: 'kitSportsMusicGardening', label: 'Sports, musical, and gardening kits available', type: 'yesno' },
-      { id: 'kitFeltSheet', label: 'Felt sheet available', type: 'yesno' },
-      { id: 'kitRingsTower', label: 'Rings or tower available', type: 'yesno' },
-      { id: 'kitStationery', label: 'Stationery available', type: 'yesno' },
-      { id: 'kitStoryBooks', label: 'Story books available', type: 'yesno' },
-      { id: 'kitRow13', label: 'Resource kit item — row 13', type: 'yesno' },
-      { id: 'kitRow14', label: 'Resource kit item — row 14', type: 'yesno' },
-      { id: 'kitRow15', label: 'Resource kit item — row 15', type: 'yesno' },
-      { id: 'kitRow16', label: 'Resource kit item — row 16', type: 'yesno' },
-      { id: 'kitRow17', label: 'Resource kit item — row 17', type: 'yesno' },
-      { id: 'parwaazKitAvailable', label: 'Parwaaz kit is available in the room', type: 'yesno' },
-      { id: 'parwaazKitUsedByIbtida', label: 'Parwaaz kit is used by Ibtida children', type: 'yesno' },
-      { id: 'ibtidaKitUsedInParwaaz', label: 'Ibtida kit is used in Parwaaz sessions', type: 'yesno' },
-    ],
-  },
-  {
-    title: 'Curriculum, teaching & observations',
-    fields: [
-      { id: 'multigradeFramework', label: 'Head Office multigrade activity framework is available', type: 'yesno' },
-      { id: 'curriculumGuidelines', label: 'Ibtida curriculum guidelines are available', type: 'yesno' },
-      { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
-      { id: 'teachersOriented', label: 'Teachers are oriented about multigrade classes', type: 'yesno' },
-      { id: 'smallGroupActivities', label: 'Separate small-group activities are conducted for Ibtida and Nursery', type: 'yesno' },
-      { id: 'modelContinues', label: 'The same initiated model continues to be followed', type: 'yesno' },
-      { id: 'teachersConductParwaaz', label: 'Ibtida teachers conduct Parwaaz sessions', type: 'yesno' },
-      { id: 'overallObservation', label: 'Overall observation about the Ibtida programme', type: 'textarea' },
-      { id: 'challenges', label: 'Challenges faced in the Ibtida programme', type: 'textarea' },
-    ],
-  },
+
+const ibtidaModels = ['Regular model', 'Regular model with AKES', 'Weekend model', 'Multigrade model'];
+const ibtidaBasicFields = [
+  { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
+  { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
+  { id: 'dailyDuration', label: 'Time duration per day for Ibtida class' },
+  { id: 'femaleStudents', label: 'Number of female students', type: 'number' },
+  { id: 'maleStudents', label: 'Number of male students', type: 'number' },
+  { id: 'trainedTeachers', label: 'Number of trained teachers', type: 'number' },
+  { id: 'untrainedTeachers', label: 'Number of untrained teachers', type: 'number' },
+  { id: 'modelFunctioning', label: 'Is the model functioning?', type: 'yesno' },
+  { id: 'curriculumGuidelines', label: 'Ibtida curriculum guidelines are available', type: 'yesno' },
+  { id: 'overallObservation', label: 'Overall observation about the Ibtida programme', type: 'textarea' },
+  { id: 'challenges', label: 'Challenges faced in the Ibtida programme', type: 'textarea' },
 ];
+const ibtidaRoomsGroup = {
+  title: 'Rooms & premises',
+  fields: [
+    { id: 'roomAvailable', label: 'Room is available', type: 'yesno' },
+    { id: 'roomWellPainted', label: 'Room is well painted', type: 'yesno' },
+    { id: 'adequateLight', label: 'Adequate provision of light', type: 'yesno' },
+    { id: 'adequateVentilation', label: 'Adequate provision of ventilation', type: 'yesno' },
+    { id: 'goodFlooring', label: 'Flooring is good to sit on', type: 'yesno' },
+    { id: 'spaceSufficient', label: 'Space is sufficient for a class', type: 'yesno' },
+    { id: 'roomAgeAppropriate', label: 'Room is age appropriate for children', type: 'yesno' },
+    { id: 'otherClassesSameRoom', label: 'Any other classes conducted in the same room?', type: 'text' },
+    { id: 'parwaazSameRoom', label: 'Are Parwaaz sessions conducted in the same room?', type: 'yesno' },
+  ],
+};
+const ibtidaFurnitureGroup = {
+  title: 'Furniture checklist',
+  fields: [
+    { id: 'halfMoonTables', label: 'Half moon tables', type: 'checkQuantity' },
+    { id: 'tables', label: 'Tables', type: 'checkQuantity' },
+    { id: 'cushions', label: 'Cushions', type: 'checkQuantity' },
+    { id: 'seatingArrangement', label: 'Chairs or other proper seating', type: 'checkQuantity' },
+    { id: 'shelves', label: 'Shelves', type: 'checkQuantity' },
+    { id: 'bookRacks', label: 'Book racks', type: 'checkQuantity' },
+    { id: 'moveableShelves', label: 'Moveable shelves made from low-cost materials', type: 'check' },
+  ],
+};
+const ibtidaKitGroup = {
+  title: 'Resource kit checklist',
+  fields: [
+    { id: 'resourceKitAvailable', label: 'Ibtida resource kit is available', type: 'yesno' },
+    { id: 'resourceKitShelves', label: 'Resource kit is kept on shelves', type: 'yesno' },
+    { id: 'resourceKitUsed', label: 'Resource kit is used by students', type: 'yesno' },
+    { id: 'resourceKitCondition', label: 'Condition of the resource kit is good', type: 'yesno' },
+    { id: 'kitJarsBaskets', label: 'Jars and baskets', type: 'check' },
+    { id: 'kitPuzzlesBlocks', label: 'Different puzzles and blocks', type: 'check' },
+    { id: 'kitUtensils', label: 'Utensils', type: 'check' },
+    { id: 'kitFlashcards', label: 'Flashcards', type: 'check' },
+    { id: 'kitAnimalsFruits', label: 'Animals, birds, fruits, and vegetables', type: 'check' },
+    { id: 'kitBalls', label: 'Balls', type: 'check' },
+    { id: 'kitTentHouse', label: 'Tent house', type: 'check' },
+    { id: 'kitLearningBoards', label: 'Learning boards', type: 'check' },
+    { id: 'kitSportsMusicGardening', label: 'Sports, musical, and gardening kits', type: 'check' },
+    { id: 'kitFeltSheet', label: 'Felt sheet', type: 'check' },
+    { id: 'kitRingsTower', label: 'Rings or tower', type: 'check' },
+    { id: 'kitStationery', label: 'Stationery', type: 'check' },
+    { id: 'kitStoryBooks', label: 'Story books', type: 'check' },
+    { id: 'kitRow13', label: 'Resource kit item — row 13', type: 'check' },
+    { id: 'kitRow14', label: 'Resource kit item — row 14', type: 'check' },
+    { id: 'kitRow15', label: 'Resource kit item — row 15', type: 'check' },
+    { id: 'kitRow16', label: 'Resource kit item — row 16', type: 'check' },
+    { id: 'kitRow17', label: 'Resource kit item — row 17', type: 'check' },
+    { id: 'parwaazKitAvailable', label: 'Parwaaz kit is available in the room', type: 'check' },
+    { id: 'parwaazKitUsedByIbtida', label: 'Parwaaz kit is used by Ibtida children', type: 'check' },
+    { id: 'ibtidaKitUsedInParwaaz', label: 'Ibtida kit is used in Parwaaz sessions', type: 'check' },
+  ],
+};
+const ibtidaWeekendRoomsGroup = {
+  title: 'Hall & premises',
+  fields: [
+    { id: 'hallAvailable', label: 'Hall or premises are available', type: 'yesno' },
+    { id: 'spaceSufficient', label: 'Space is sufficient for the class', type: 'yesno' },
+    { id: 'classConducted', label: 'Ibtida class is conducted at this REC', type: 'yesno' },
+    { id: 'classConductedSchedule', label: 'Ibtida class day and timings' },
+    { id: 'weekendClassDay', label: 'Day for weekend classes' },
+    { id: 'classTimings', label: 'Class timings' },
+  ],
+};
+const ibtidaMultigradeGroup = {
+  title: 'Multigrade classes',
+  fields: [
+    { id: 'ibtidaNurseryMerged', label: 'Are classes merged with Ibtida?', type: 'yesno' },
+    { id: 'otherClassesMerged', label: 'Which other classes are merged with Ibtida and Nursery?' },
+    { id: 'nurseryChildren', label: 'Number of children in Nursery class', type: 'number' },
+    { id: 'otherClassChildren', label: 'Number of children in the other class or classes', type: 'number' },
+    { id: 'multigradePremises', label: 'Premises are suitable for a multigrade class', type: 'yesno' },
+    { id: 'multigradePremisesNotes', label: 'Other premises details for multigrade classes' },
+    { id: 'multigradeFramework', label: 'Head Office multigrade activity framework is available', type: 'yesno' },
+    { id: 'teachersOriented', label: 'Teachers are oriented about multigrade classes', type: 'yesno' },
+    { id: 'smallGroupActivities', label: 'Separate small-group activities are conducted for Ibtida and Nursery', type: 'yesno' },
+    { id: 'modelContinues', label: 'The same initiated model continues to be followed', type: 'yesno' },
+  ],
+};
+const ibtidaProgrammeGroup = {
+  title: 'Other programme details',
+  fields: [
+    { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
+    { id: 'teachersConductParwaaz', label: 'Ibtida teachers conduct Parwaaz sessions', type: 'yesno' },
+  ],
+};
+
+function ibtidaGroupsForModel(model) {
+  const groups = [{ title: 'Class profile & staffing', fields: ibtidaBasicFields }];
+  if (model === 'Regular model' || model === 'Regular model with AKES') {
+    groups.push(ibtidaRoomsGroup, ibtidaFurnitureGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+  } else if (model === 'Weekend model') {
+    groups.push(ibtidaWeekendRoomsGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+  } else if (model === 'Multigrade model') {
+    groups.push(ibtidaMultigradeGroup, ibtidaKitGroup, ibtidaProgrammeGroup);
+  }
+  return groups;
+}
+
+function displayIbtidaValue(profile, field) {
+  if (field.type === 'check') return profile[field.id] === 'Yes' ? '✓' : profile[field.id] === 'No' ? 'Not available' : 'Not checked';
+  if (field.type === 'checkQuantity') {
+    const available = profile[field.id] === 'Yes';
+    return available ? '✓ Available' + (profile[field.id + 'Quantity'] ? ' · Quantity: ' + profile[field.id + 'Quantity'] : '') : profile[field.id] === 'No' ? 'Not available' : 'Not checked';
+  }
+  return profile[field.id] || 'Not recorded';
+}
 
 function IbtidaClassroomForm({ region, localBoard, recName }) {
   const profileId = [region, localBoard, recName].join('::');
@@ -525,6 +554,7 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
   });
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
   const [message, setMessage] = useState('');
+  const groups = ibtidaGroupsForModel(profile.model);
 
   function update(field, value) {
     setProfile((current) => ({ ...current, [field]: value }));
@@ -556,15 +586,25 @@ function IbtidaClassroomForm({ region, localBoard, recName }) {
     }
   }
 
+  function renderField(field) {
+    const value = profile[field.id] || '';
+    if (field.type === 'yesno') return <select value={value} onChange={(event) => update(field.id, event.target.value)}><option value="">Choose</option><option>Yes</option><option>No</option><option>Not observed</option></select>;
+    if (field.type === 'check') return <label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>;
+    if (field.type === 'checkQuantity') return <div className="ibtida-tick-quantity"><label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>{value === 'Yes' && <input type="number" min="0" aria-label={field.label + ' quantity'} placeholder="Quantity" value={profile[field.id + 'Quantity'] || ''} onChange={(event) => update(field.id + 'Quantity', event.target.value)} />}</div>;
+    if (field.type === 'textarea') return <textarea rows="3" value={value} onChange={(event) => update(field.id, event.target.value)} />;
+    return <input type={field.type === 'number' ? 'number' : 'text'} min={field.type === 'number' ? '0' : undefined} value={value} onChange={(event) => update(field.id, event.target.value)} />;
+  }
+
   return <section className="panel-section ibtida-classroom-form">
-    <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p></div>{!isEditing && <button type="button" className="edit-ibtida-button" onClick={() => setIsEditing(true)}><Pencil size={14} />Edit details</button>}</div>
+    <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p>{!isEditing && <small className="ibtida-model-label">{profile.model}</small>}</div>{!isEditing && <button type="button" className="edit-ibtida-button" onClick={() => setIsEditing(true)}><Pencil size={14} />Edit details</button>}</div>
     {!isEditing && profile.reviewedAt && <p className="ibtida-confirmed-status">Confirmed {new Date(profile.reviewedAt).toLocaleString()}</p>}
     {message && <p className="data-import-message">{message}</p>}
     {isEditing ? <form className="ibtida-groups-form" onSubmit={(event) => { event.preventDefault(); saveProfile(); }}>
-      {ibtidaFieldGroups.map((group) => <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <label className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}>{field.label}{field.type === 'yesno' ? <select value={profile[field.id] || ''} onChange={(event) => update(field.id, event.target.value)}><option value="">Choose</option><option>Yes</option><option>No</option><option>Not observed</option></select> : field.type === 'textarea' ? <textarea rows="3" value={profile[field.id] || ''} onChange={(event) => update(field.id, event.target.value)} /> : <input type={field.type === 'number' ? 'number' : 'text'} min={field.type === 'number' ? '0' : undefined} value={profile[field.id] || ''} onChange={(event) => update(field.id, event.target.value)} />}</label>)}</div></fieldset>)}
+      <label className="form-field ibtida-model-select">Ibtida model<select required value={profile.model || ''} onChange={(event) => update('model', event.target.value)}><option value="">Select a model</option>{ibtidaModels.map((model) => <option key={model}>{model}</option>)}</select></label>
+      {groups.map((group) => <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}</div>)}</div></fieldset>)}
       <div className="dialog-actions"><button className="add-resource-button" type="submit"><FileText size={15} />Save classroom details</button></div>
     </form> : <>
-      <div className="ibtida-saved-groups">{ibtidaFieldGroups.map((group) => <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{profile[field.id] || 'Not recorded'}</dd></div>)}</dl></section>)}</div>
+      <div className="ibtida-saved-groups">{groups.map((group) => <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd></div>)}</dl></section>)}</div>
       <div className="dialog-actions"><button type="button" className="confirm-review-button" onClick={confirmProfile}>{profile.reviewedAt ? 'Confirm again' : 'Confirm details'}</button></div>
     </>}
   </section>;
