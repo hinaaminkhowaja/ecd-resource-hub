@@ -367,6 +367,8 @@ function AccessEnrollmentPanel({ data }) {
   const [visibleLimit, setVisibleLimit] = useState(100);
   const [followupRegion, setFollowupRegion] = useState('');
   const [followupGroup, setFollowupGroup] = useState('');
+  const [issueSyncStatus, setIssueSyncStatus] = useState('loading');
+  const [issueSyncReady, setIssueSyncReady] = useState(false);
   const [issueNotes, setIssueNotes] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
     catch { return {}; }
@@ -407,8 +409,26 @@ function AccessEnrollmentPanel({ data }) {
     return regions.flatMap((regionName) => classGroups.map((group) => makeSummary(regionName, group)));
   }, [records, regions]);
   useEffect(() => {
+    let active = true;
+    fetch('/api/access-issues').then((response) => response.ok ? response.json() : Promise.reject(new Error('Shared issue storage is unavailable.'))).then((result) => {
+      if (!active) return;
+      const shared = result?.issues && typeof result.issues === 'object' ? result.issues : {};
+      setIssueNotes((current) => ({ ...current, ...shared }));
+      setIssueSyncStatus('shared');
+    }).catch(() => { if (active) setIssueSyncStatus('device'); }).finally(() => { if (active) setIssueSyncReady(true); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
     window.localStorage.setItem('ecd-resource-hub.access-issues', JSON.stringify(issueNotes));
-  }, [issueNotes]);
+    if (!issueSyncReady) return undefined;
+    setIssueSyncStatus('saving');
+    const timer = window.setTimeout(() => {
+      fetch('/api/access-issues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ issues: issueNotes }) })
+        .then((response) => { if (!response.ok) throw new Error('Could not save shared issue notes.'); setIssueSyncStatus('shared'); })
+        .catch(() => setIssueSyncStatus('device'));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [issueNotes, issueSyncReady]);
   const differenceFields = [
     ['q1Vs2025', 'Q1 vs 2025'], ['q2VsQ1', 'Q2 vs Q1'], ['q3VsQ2', 'Q3 vs Q2'],
     ['q4VsQ3', 'Q4 vs Q3'], ['q4Vs2025', 'Q4 vs 2025'],
@@ -431,7 +451,7 @@ function AccessEnrollmentPanel({ data }) {
       <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>Separate classes and combined enrolment</h2></div></div>
       <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class / group</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th></tr></thead><tbody>{summaryRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td className={diffClass(row.q1Vs2025)}>{fmtDiff(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2VsQ1)}>{fmtDiff(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3VsQ2)}>{fmtDiff(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4VsQ3)}>{fmtDiff(row.q4VsQ3)}</td><td className={diffClass(row.q4Vs2025)}>{fmtDiff(row.q4Vs2025)}</td><td>{displayCount(row.adequateQ1)}</td><td>{displayCount(row.moderateQ1)}</td><td>{displayCount(row.lowQ1)}</td><td>{displayCount(row.nonQ1)}</td></tr>)}</tbody></table></div>
       <section className="access-followup">
-        <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record an issue or reason and assign a person to follow up. Notes save on this device.</p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
+        <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record a reason and assign a person to follow up. <span className="access-sync-status">{issueSyncStatus === 'shared' ? 'Saved for users of this app.' : issueSyncStatus === 'saving' || issueSyncStatus === 'loading' ? 'Saving…' : 'Saved on this device only; shared storage is unavailable.'}</span></p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
         <div className="classroom-location-selects access-followup-filters"><label className="form-field">Region<select value={followupRegion} onChange={(event) => setFollowupRegion(event.target.value)}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Class / group<select value={followupGroup} onChange={(event) => setFollowupGroup(event.target.value)}><option value="">All classes and groups</option>{classesForFollowup.map((value) => <option key={value}>{value}</option>)}</select></label></div>
         {issueItems.length ? <div className="access-issue-list">{issueItems.slice(0, 60).map((item) => <article className="access-issue-card" key={item.key}><div className="access-issue-heading"><span><b>{item.region}</b><small>{item.group}</small></span><strong className="access-difference-pill">{item.label}: {fmtDiff(item.value)}</strong></div><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes[item.key]?.reason || ''} onChange={(event) => updateIssue(item.key, 'reason', event.target.value)} placeholder="Describe the reason for this change" /></label><label className="form-field">Assigned user<input value={issueNotes[item.key]?.assignedUser || ''} onChange={(event) => updateIssue(item.key, 'assignedUser', event.target.value)} placeholder="Enter the responsible person’s name" /></label></article>)}</div> : <div className="empty-state"><b>No non-zero differences for these filters</b></div>}
         {issueItems.length > 60 && <span className="access-followup-limit">Showing 60 of {issueItems.length.toLocaleString()} differences. Use the region and class filters to narrow the list.</span>}
