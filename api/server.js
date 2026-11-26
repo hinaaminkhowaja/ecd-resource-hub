@@ -89,12 +89,21 @@ const server = http.createServer(async (request, response) => {
   if (request.method === 'POST' && request.url === '/api/access-issues') {
     try {
       const body = await readRequest(request);
-      if (!body.issues || typeof body.issues !== 'object' || Array.isArray(body.issues)) {
+      if (!body.updates || typeof body.updates !== 'object' || Array.isArray(body.updates)) {
         response.statusCode = 400;
-        response.end(JSON.stringify({ error: 'Issue notes must be a record.' }));
+        response.end(JSON.stringify({ error: 'Issue updates must be a record.' }));
         return;
       }
-      await writeAccessIssues(body.issues);
+      const issues = await readAccessIssues();
+      Object.entries(body.updates).forEach(([key, update]) => {
+        if (!key || !update || typeof update !== 'object' || Array.isArray(update)) return;
+        issues[key] = {
+          reason: String(update.reason || '').slice(0, 5000),
+          assignedUser: String(update.assignedUser || '').slice(0, 250),
+          updatedAt: String(update.updatedAt || new Date().toISOString()),
+        };
+      });
+      await writeAccessIssues(issues);
       response.end(JSON.stringify({ saved: true }));
     } catch (error) {
       response.statusCode = 400;
