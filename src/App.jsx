@@ -441,6 +441,7 @@ function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecor
 }
 
 const ibtidaModels = ['Regular model', 'Regular model with AKES', 'Weekend model', 'Multigrade model'];
+const ibtidaModelGroup = { title: 'Class model', fields: [{ id: 'model', label: 'Ibtida model', type: 'model' }] };
 const ibtidaBasicFields = [
   { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
   { id: 'sustainabilityYear', label: 'Sustainability year', type: 'number' },
@@ -553,7 +554,7 @@ const ibtidaMultigradeGroup = {
 };
 
 function ibtidaGroupsForModel(model) {
-  const groups = [{ title: 'Class profile & staffing', fields: ibtidaBasicFields }, ibtidaTeachersGroup];
+  const groups = [ibtidaModelGroup, { title: 'Class profile & staffing', fields: ibtidaBasicFields }, ibtidaTeachersGroup];
   if (model === 'Regular model' || model === 'Regular model with AKES') {
     groups.push(ibtidaRoomsGroup, ibtidaFurnitureGroup, ibtidaKitGroup);
   } else if (model === 'Weekend model') {
@@ -630,6 +631,8 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
     catch { return false; }
   });
   const [isEditing, setIsEditing] = useState(() => !Object.keys(profile).length);
+  const [editingSection, setEditingSection] = useState('');
+  const [comparisonProfile, setComparisonProfile] = useState(null);
 
   useEffect(() => {
     if (!sourcePrefill) return;
@@ -664,7 +667,7 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   function saveProfile() {
     try {
       const allProfiles = JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}');
-      allProfiles[profileId] = { ...profile, updatedAt: new Date().toISOString(), reviewedAt: '' };
+      allProfiles[profileId] = { ...profile, sectionConfirmations: {}, updatedAt: new Date().toISOString(), reviewedAt: '' };
       window.localStorage.setItem('ecd-resource-hub.ibtida-classrooms', JSON.stringify(allProfiles));
       setProfile(allProfiles[profileId]);
       setHasSavedProfile(true);
@@ -675,35 +678,77 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
     }
   }
 
-  function confirmProfile() {
-    const reviewed = { ...profile, reviewedAt: new Date().toISOString() };
+  function beginSectionChange(title) {
+    setComparisonProfile({ ...profile, teachers: profile.teachers ? profile.teachers.map((teacher) => ({ ...teacher })) : [] });
+    setEditingSection(title);
+  }
+
+  function cancelSectionChange() {
+    if (comparisonProfile) setProfile(comparisonProfile);
+    setComparisonProfile(null);
+    setEditingSection('');
+  }
+
+  function confirmSection(title) {
+    const timestamp = new Date().toISOString();
     try {
+      const confirmations = { ...(profile.sectionConfirmations || {}) };
+      if (!profile.sectionConfirmations && profile.reviewedAt) groups.forEach((group) => { confirmations[group.title] = profile.reviewedAt; });
+      confirmations[title] = timestamp;
+      const updated = { ...profile, sectionConfirmations: confirmations, reviewedAt: '', updatedAt: timestamp };
       const allProfiles = JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}');
-      allProfiles[profileId] = reviewed;
+      allProfiles[profileId] = updated;
       window.localStorage.setItem('ecd-resource-hub.ibtida-classrooms', JSON.stringify(allProfiles));
-      setProfile(reviewed);
-      setMessage('Ibtida classroom details confirmed.');
+      setProfile(updated);
+      setHasSavedProfile(true);
+      setComparisonProfile(null);
+      setEditingSection('');
+      setMessage(title + ' confirmed.');
     } catch {
-      setMessage('The confirmation could not be saved in this browser.');
+      setMessage('This section could not be saved in this browser.');
     }
+  }
+
+  function sectionIsConfirmed(title) {
+    if (profile.sectionConfirmations && Object.prototype.hasOwnProperty.call(profile.sectionConfirmations, title)) return Boolean(profile.sectionConfirmations[title]);
+    return Boolean(profile.reviewedAt);
   }
 
   function renderField(field) {
     const value = profile[field.id] || '';
+    if (field.type === 'model') return <select required value={value} onChange={(event) => update(field.id, event.target.value)}><option value="">Select a model</option>{ibtidaModels.map((model) => <option key={model}>{model}</option>)}</select>;
     if (field.type === 'yesno') return <select value={value} onChange={(event) => update(field.id, event.target.value)}><option value="">Choose</option><option>Yes</option><option>No</option><option>Not observed</option></select>;
     if (field.type === 'check') return <label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>;
     if (field.type === 'checkQuantity') return <div className="ibtida-tick-quantity"><label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>{value === 'Yes' && <input type="number" min="0" aria-label={field.label + ' quantity'} placeholder="Quantity" value={profile[field.id + 'Quantity'] || ''} onChange={(event) => update(field.id + 'Quantity', event.target.value)} />}</div>;
     if (field.type === 'textarea') return <textarea rows="3" value={value} onChange={(event) => update(field.id, event.target.value)} />;
-    return <input type={field.type === 'number' ? 'number' : 'text'} min={field.type === 'number' ? '0' : undefined} value={value} onChange={(event) => update(field.id, event.target.value)} />;
+    return <input type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} min={field.type === 'number' ? '0' : undefined} value={value} onChange={(event) => update(field.id, event.target.value)} />;
+  }
+
+  function sectionSummary(group, values) {
+    if (group.title === 'Teacher details & training') return (values.teachers || []).length
+      ? <div className="teacher-summary-list">{values.teachers.map((teacher, index) => <article className="teacher-summary" key={index}><b>{teacher.name || 'Teacher ' + (index + 1)}</b><span>ITREB training: {teacher.itrebTraining || 'Not recorded'}</span><span>Other training: {teacher.otherTraining || 'Not recorded'}</span><span>Experience: {teacher.experienceYears ? teacher.experienceYears + ' years' : 'Not recorded'}</span></article>)}</div>
+      : <p className="teacher-empty">No teachers recorded yet.</p>;
+    return <dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(values, field)}</dd>{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</dl>;
+  }
+
+  function sectionEditor(group) {
+    if (group.title === 'Teacher details & training') return <>
+      {(profile.teachers || []).map((teacher, index) => <div className="teacher-record" key={index}><div className="teacher-record-heading"><b>Teacher {index + 1}</b><button type="button" className="teacher-remove-button" onClick={() => removeTeacher(index)}>Remove</button></div><div className="ibtida-field-grid">
+        <label className="form-field">Teacher name<input value={teacher.name || ''} onChange={(event) => updateTeacher(index, 'name', event.target.value)} /></label>
+        <label className="form-field">Training attended through ITREB<textarea rows="2" value={teacher.itrebTraining || ''} onChange={(event) => updateTeacher(index, 'itrebTraining', event.target.value)} /></label>
+        <label className="form-field">Any other training<textarea rows="2" value={teacher.otherTraining || ''} onChange={(event) => updateTeacher(index, 'otherTraining', event.target.value)} /></label>
+        <label className="form-field">Years of experience<input type="number" min="0" step="0.5" value={teacher.experienceYears || ''} onChange={(event) => updateTeacher(index, 'experienceYears', event.target.value)} /></label>
+      </div></div>)}
+      <button type="button" className="add-teacher-button" onClick={addTeacher}><Plus size={14} />Add teacher</button>
+    </>;
+    return <div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</div>;
   }
 
   return <section className="panel-section ibtida-classroom-form">
-    <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p>{!isEditing && <small className="ibtida-model-label">{profile.model}</small>}</div>{!isEditing && <button type="button" className="edit-ibtida-button" onClick={() => setIsEditing(true)}><Pencil size={14} />Edit details</button>}</div>
+    <div className="ibtida-form-heading"><div><div className="eyebrow">CLASSROOM PROFILE · IBTIDA</div><h2>{recName}</h2><p>{region} · {localBoard}</p>{!isEditing && <small className="ibtida-model-label">{profile.model}</small>}</div></div>
     {sourceRecord && !hasSavedProfile && <p className="ibtida-prefill-notice">Prefilled from available Ibtida records. Review or edit the survey details, then save and confirm.</p>}
-    {!isEditing && profile.reviewedAt && <p className="ibtida-confirmed-status">Confirmed {new Date(profile.reviewedAt).toLocaleString()}</p>}
     {message && <p className="data-import-message">{message}</p>}
     {isEditing ? <form className="ibtida-groups-form" onSubmit={(event) => { event.preventDefault(); saveProfile(); }}>
-      <label className="form-field ibtida-model-select">Ibtida model<select required value={profile.model || ''} onChange={(event) => update('model', event.target.value)}><option value="">Select a model</option>{ibtidaModels.map((model) => <option key={model}>{model}</option>)}</select></label>
       {groups.map((group) => group.title === 'Teacher details & training' ? <fieldset className="ibtida-field-group teacher-details-group" key={group.title}><legend>{group.title}</legend>
         {(profile.teachers || []).map((teacher, index) => <div className="teacher-record" key={index}><div className="teacher-record-heading"><b>Teacher {index + 1}</b><button type="button" className="teacher-remove-button" onClick={() => removeTeacher(index)}>Remove</button></div>
           <div className="ibtida-field-grid">
@@ -717,8 +762,23 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
       </fieldset> : <fieldset className="ibtida-field-group" key={group.title}><legend>{group.title}</legend><div className="ibtida-field-grid">{group.fields.map((field) => <div className={'form-field ibtida-field-' + (field.type || 'text')} key={field.id}><span className="ibtida-field-label">{field.label}</span>{renderField(field)}{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</div></fieldset>)}
       <div className="dialog-actions"><button className="add-resource-button" type="submit"><FileText size={15} />Save classroom details</button></div>
     </form> : <>
-      <div className="ibtida-saved-groups">{groups.map((group) => group.title === 'Teacher details & training' ? <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3>{(profile.teachers || []).length ? <div className="teacher-summary-list">{profile.teachers.map((teacher, index) => <article className="teacher-summary" key={index}><b>{teacher.name || 'Teacher ' + (index + 1)}</b><span>ITREB training: {teacher.itrebTraining || 'Not recorded'}</span><span>Other training: {teacher.otherTraining || 'Not recorded'}</span><span>Experience: {teacher.experienceYears ? teacher.experienceYears + ' years' : 'Not recorded'}</span></article>)}</div> : <p className="teacher-empty">No teachers recorded yet.</p>}</section> : <section className="ibtida-saved-group" key={group.title}><h3>{group.title}</h3><dl>{group.fields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{displayIbtidaValue(profile, field)}</dd>{historicalFieldContext(sourceRecord, field.id) && <small className="ibtida-field-history">{historicalFieldContext(sourceRecord, field.id)}</small>}</div>)}</dl></section>)}</div>
-      <div className="dialog-actions"><button type="button" className="confirm-review-button" onClick={confirmProfile}>{profile.reviewedAt ? 'Confirm again' : 'Confirm details'}</button></div>
+      <div className="ibtida-saved-groups">{groups.map((group) => {
+        const isConfirmed = sectionIsConfirmed(group.title);
+        if (editingSection === group.title) return <section className="ibtida-saved-group ibtida-review-card ibtida-editing-card" key={group.title}>
+          <h3>{group.title} · review changes</h3>
+          <div className="ibtida-side-by-side">
+            <div className="ibtida-compare-pane"><h4>Available information</h4>{sectionSummary(group, comparisonProfile || profile)}</div>
+            <div className="ibtida-compare-pane ibtida-change-pane"><h4>Change information</h4>{sectionEditor(group)}</div>
+          </div>
+          <div className="ibtida-section-actions"><button type="button" className="cancel-button" onClick={cancelSectionChange}>Cancel</button><button type="button" className="confirm-review-button" onClick={() => confirmSection(group.title)}>Confirm changes ✓</button></div>
+        </section>;
+        return <section className={'ibtida-saved-group ibtida-review-card ' + (isConfirmed ? 'is-confirmed' : 'needs-confirmation')} key={group.title}>
+          <div className="ibtida-section-heading"><h3>{group.title}</h3><div className="ibtida-section-status">{isConfirmed ? <span className="ibtida-green-check">✓ Confirmed</span> : <span className="ibtida-pending-check">Review needed</span>}<button type="button" className="ibtida-change-button" onClick={() => beginSectionChange(group.title)}>Change</button></div></div>
+          {sectionSummary(group, profile)}
+          <div className="ibtida-section-actions"><button type="button" className={isConfirmed ? 'confirm-review-button ibtida-confirmed-button' : 'confirm-review-button'} onClick={() => confirmSection(group.title)}>{isConfirmed ? '✓ Confirmed' : 'Confirm this section'}</button></div>
+        </section>;
+      })}</div>
+      <div className="ibtida-section-help">Review each section. Choose <b>Change</b> to compare the saved information with your updates side by side.</div>
     </>}
   </section>;
 }
