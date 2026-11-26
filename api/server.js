@@ -102,6 +102,7 @@ const server = http.createServer(async (request, response) => {
           issues[key] = {
             reason: String(update.reason || '').slice(0, 5000),
             assignedUser: String(update.assignedUser || '').slice(0, 250),
+            designation: String(update.designation || '').slice(0, 250),
             updatedAt: String(update.updatedAt || new Date().toISOString()),
           };
         });
