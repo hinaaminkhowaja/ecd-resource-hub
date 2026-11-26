@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
+const accessIssuesPath = path.join(storeDirectory, 'access-issues.json');
 const port = Number(process.env.API_PORT || 3001);
 async function readReceipts() {
   try {
@@ -19,6 +20,20 @@ async function readReceipts() {
 async function writeReceipts(rows) {
   await mkdir(storeDirectory, { recursive: true });
   await writeFile(storePath, JSON.stringify(rows, null, 2), 'utf8');
+}
+
+async function readAccessIssues() {
+  try {
+    const issues = JSON.parse(await readFile(accessIssuesPath, 'utf8'));
+    return issues && typeof issues === 'object' && !Array.isArray(issues) ? issues : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeAccessIssues(issues) {
+  await mkdir(storeDirectory, { recursive: true });
+  await writeFile(accessIssuesPath, JSON.stringify(issues, null, 2), 'utf8');
 }
 
 function removeEmailMetadata(receipt) {
@@ -65,6 +80,26 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   if (request.method === 'GET' && request.url === '/api/receipts') {
     response.end(JSON.stringify({ receipts: await readReceipts() }));
+    return;
+  }
+  if (request.method === 'GET' && request.url === '/api/access-issues') {
+    response.end(JSON.stringify({ issues: await readAccessIssues() }));
+    return;
+  }
+  if (request.method === 'POST' && request.url === '/api/access-issues') {
+    try {
+      const body = await readRequest(request);
+      if (!body.issues || typeof body.issues !== 'object' || Array.isArray(body.issues)) {
+        response.statusCode = 400;
+        response.end(JSON.stringify({ error: 'Issue notes must be a record.' }));
+        return;
+      }
+      await writeAccessIssues(body.issues);
+      response.end(JSON.stringify({ saved: true }));
+    } catch (error) {
+      response.statusCode = 400;
+      response.end(JSON.stringify({ error: error.message }));
+    }
     return;
   }
   if (request.method === 'POST' && request.url === '/api/receipts') {
