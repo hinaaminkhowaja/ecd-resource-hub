@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import recDirectory from './data/recs.json';
 import ibtidaClassroomsEncoded from './data/ibtida-classrooms.json.gz.b64?raw';
+import accessEnrollmentEncoded from './data/access-enrollment.json.gz.b64?raw';
 import './management.css';
 import './receipts.css';
 
@@ -38,6 +39,17 @@ async function loadIbtidaClassroomRecords() {
   const decompressed = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
   const data = await new Response(decompressed).json();
   return Array.isArray(data.records) ? data.records : [];
+}
+
+async function loadAccessEnrollmentData() {
+  const binary = window.atob(accessEnrollmentEncoded.trim());
+  const compressed = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const decompressed = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(decompressed).json();
+}
+
+function displayCount(value) {
+  return value === null || value === undefined ? '—' : Number(value).toLocaleString();
 }
 const ibtidaResource = {
   id: SYSTEM_RESOURCE_ID,
@@ -99,6 +111,7 @@ function App() {
   const [receipts, setReceipts] = useState(() => readLocalList(RECEIPT_STORAGE_KEY));
   const [requests, setRequests] = useState(() => readLocalList('ecd-resource-hub.requests'));
   const [ibtidaClassroomRecords, setIbtidaClassroomRecords] = useState([]);
+  const [accessEnrollmentData, setAccessEnrollmentData] = useState(null);
   const [panel, setPanel] = useState('home');
   const [active, setActive] = useState('All resources');
   const [query, setQuery] = useState('');
@@ -136,6 +149,9 @@ function App() {
     let active = true;
     loadIbtidaClassroomRecords().then((records) => {
       if (active) setIbtidaClassroomRecords(records);
+    }).catch(() => {});
+    loadAccessEnrollmentData().then((data) => {
+      if (active) setAccessEnrollmentData(data);
     }).catch(() => {});
     return () => { active = false; };
   }, []);
@@ -278,8 +294,8 @@ function App() {
           <p>{currentPanel?.description}</p>
         </section>
 
-        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} />}
-        {panel === 'access' && <DataPanel title="ECED Access & Enrollment" storageKey="ecd-resource-hub.access-data" />}
+        {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
+        {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData} />}
 
         {panel === 'materials' && <section className="library-section panel-section">
           <div className="panel-action-row"><p>Manage the teaching and classroom materials available to RECs.</p><button className="add-resource-button" onClick={openAddResource}><Plus size={16} />Add material</button></div>
@@ -340,7 +356,46 @@ function findRecordField(record, candidates) {
   return key ? String(record[key] ?? '').trim() : '';
 }
 
-function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecords = [] }) {
+function AccessEnrollmentPanel({ data }) {
+  const records = data?.records || [];
+  const regions = useMemo(() => [...new Set(records.map((record) => record.region))].sort(), [records]);
+  const [region, setRegion] = useState('');
+  const [localBoard, setLocalBoard] = useState('');
+  const [recName, setRecName] = useState('');
+  const [className, setClassName] = useState('All classes');
+  const [query, setQuery] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(100);
+  const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
+  const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
+  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (className === 'All classes' || record.className === className) && (!query || `${record.recName} ${record.localBoard} ${record.region}`.toLowerCase().includes(query.toLowerCase())), [records, region, localBoard, recName, className, query]);
+  const summaries = useMemo(() => {
+    const groups = new Map();
+    filtered.forEach((record) => {
+      const key = `${record.region}::${className === 'All classes' ? 'All classes' : record.className}`;
+      const row = groups.get(key) || { region: record.region, className: className === 'All classes' ? 'All classes' : record.className, recs: 0, enrollment2025: 0, q1: 0, q2: 0, q3: 0, q4: 0, q1Vs2025: 0, q2VsQ1: 0, q3VsQ2: 0, q4VsQ3: 0, q4Vs2025: 0, seen: {} };
+      if (record.className === 'Ibtida' || className !== 'All classes') row.recs += 1;
+      ['enrollment2025','q1','q2','q3','q4','q1Vs2025','q2VsQ1','q3VsQ2','q4VsQ3','q4Vs2025'].forEach((field) => { if (record[field] !== null && record[field] !== undefined) { row[field] += Number(record[field]); row.seen[field] = true; } });
+      groups.set(key, row);
+    });
+    return [...groups.values()].map((row) => ({ ...row, recs: className === 'All classes' ? records.filter((record) => record.region === row.region && record.className === 'Ibtida').length : row.recs, ...Object.fromEntries(['enrollment2025','q1','q2','q3','q4','q1Vs2025','q2VsQ1','q3VsQ2','q4VsQ3','q4Vs2025'].map((field) => [field, row.seen[field] ? row[field] : null])) })).sort((a,b) => a.region.localeCompare(b.region) || a.className.localeCompare(b.className));
+  }, [filtered, className, records]);
+  const summaryTitle = className === 'All classes' ? 'All classes combined' : className;
+  const shown = filtered.slice(0, visibleLimit);
+  const classes = ['All classes', 'Ibtida', 'Nursery', 'KG I', 'KG II'];
+  return <section className="panel-section access-enrollment-panel">
+    <div className="panel-action-row"><p>2026 enrolment by quarter, linked to each REC and classroom class. 2025 is shown as the workbook’s baseline.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
+    {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
+      <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>{summaryTitle}</h2></div><label className="form-field">Summary class<select value={className} onChange={(event) => { setClassName(event.target.value); setVisibleLimit(100); }}><option>All classes</option>{classes.slice(1).map((name) => <option key={name}>{name}</option>)}</select></label></div>
+      <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th></tr></thead><tbody>{summaries.map((row) => <tr key={`${row.region}-${row.className}`}><td>{row.region}</td><td>{row.className}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td>{displayCount(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td>{displayCount(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td>{displayCount(row.q4VsQ3)}</td><td>{displayCount(row.q4Vs2025)}</td></tr>)}</tbody></table></div>
+      <div className="access-detail-heading"><div><span className="eyebrow">REC-WISE DATA</span><h2>Quarterly enrolment by class</h2></div><span>{filtered.length.toLocaleString()} matching records</span></div>
+      <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); setVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Local Board<select value={localBoard} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); setVisibleLimit(100); }}><option value="">All local boards</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">REC<select value={recName} onChange={(event) => { setRecName(event.target.value); setVisibleLimit(100); }}><option value="">All RECs</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label><label className="form-field">Class<select value={className === 'All classes' ? '' : className} onChange={(event) => { setClassName(event.target.value || 'All classes'); setVisibleLimit(100); }}><option value="">All classes</option>{classes.slice(1).map((name) => <option key={name}>{name}</option>)}</select></label><label className="form-field">Search REC<input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }} placeholder="REC or board name" /></label></div></div>
+      <div className="access-table-wrap"><table className="data-table"><thead><tr><th>Region</th><th>Local Board</th><th>REC</th><th>Class</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Latest</th></tr></thead><tbody>{shown.map((record, index) => <tr key={`${record.recCode}-${record.classCode}-${index}`}><td>{record.region}</td><td>{record.localBoard}</td><td>{record.recName}</td><td>{record.className}</td><td>{displayCount(record.enrollment2025)}</td><td>{displayCount(record.q1)}</td><td>{displayCount(record.q1Vs2025)}</td><td>{displayCount(record.q2)}</td><td>{displayCount(record.q2VsQ1)}</td><td>{displayCount(record.q3)}</td><td>{displayCount(record.q3VsQ2)}</td><td>{displayCount(record.q4)}</td><td>{displayCount(record.q4VsQ3)}</td><td>{displayCount(record.q4Vs2025)}</td><td>{displayCount(record.latestEnrollment)}{record.latestQuarter ? ` (${record.latestQuarter})` : ''}</td></tr>)}</tbody></table></div>
+      {filtered.length > shown.length && <button type="button" className="show-more-access" onClick={() => setVisibleLimit((limit) => limit + 100)}>Show 100 more records</button>}
+    </>}
+  </section>;
+}
+
+function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecords = [], accessRecords = [] }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
   const [region, setRegion] = useState('');
@@ -354,6 +409,8 @@ function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecor
   const boardOptions = useMemo(() => [...new Set(recDirectory.filter((row) => row.region === region).map((row) => row.localBoard))].sort(), [region]);
   const recOptions = useMemo(() => recDirectory.filter((row) => row.region === region && row.localBoard === localBoard), [region, localBoard]);
   const sourceRecord = showRecClassFilters ? sourceRecords.find((record) => record.region === region && record.localBoard === localBoard && record.recName === recName) : null;
+  const accessClassRows = showRecClassFilters && region && localBoard && recName ? accessRecords.filter((record) => record.region === region && record.localBoard === localBoard && record.recName === recName && (!selectedClasses.length || selectedClasses.includes(record.className))) : [];
+  const ibtidaAccessRecord = accessRecords.find((record) => record.region === region && record.localBoard === localBoard && record.recName === recName && record.className === 'Ibtida') || null;
   const classOptions = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
 
   useEffect(() => {
@@ -435,7 +492,8 @@ function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecor
     </div>}
     {message && <p className="data-import-message">{message}</p>}
     {showRecClassFilters && selectedClasses.includes('Ibtida') && rows.length > 0 && <div className="classroom-review-banner"><div><b>Ibtida classroom data</b><span>{reviewedAt ? 'Review confirmed ' + new Date(reviewedAt).toLocaleString() : 'Review the displayed records, make any needed edits, then confirm.'}</span></div><button type="button" className="confirm-review-button" onClick={confirmReview} disabled={editingIndex !== null}>{reviewedAt ? 'Confirm again' : 'Confirm review'}</button></div>}
-    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} sourceRecord={sourceRecord} />}
+    {showRecClassFilters && region && localBoard && recName && <div className="classroom-access-link"><div><b>Linked enrolment from Access &amp; Enrollment</b><span>Latest available 2026 count for the selected REC and class.</span></div>{accessClassRows.length ? <div className="classroom-access-cards">{accessClassRows.map((record) => <article key={record.classCode}><b>{record.className}</b><strong>{displayCount(record.latestEnrollment)}</strong><span>{record.latestQuarter || 'No quarter'} · 2025 baseline {displayCount(record.enrollment2025)} · change {displayCount(record.q4Vs2025)}</span></article>)}</div> : <p>No linked enrolment rows match this REC and class selection.</p>}</div>}
+    {showRecClassFilters && selectedClasses.includes('Ibtida') && region && localBoard && recName && <IbtidaClassroomForm key={[region, localBoard, recName].join('::')} region={region} localBoard={localBoard} recName={recName} sourceRecord={sourceRecord} accessRecord={ibtidaAccessRecord} />}
     {visibleRows.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}{showRecClassFilters && <th>Review</th>}</tr></thead><tbody>{visibleRows.map(({ record, index }) => <tr key={index}>{columns.map((column) => <td key={column}>{editingIndex === index ? <input className="data-cell-input" aria-label={column} value={draftRecord?.[column] ?? ''} onChange={(event) => setDraftRecord((current) => ({ ...current, [column]: event.target.value }))} /> : record[column]}</td>)}{showRecClassFilters && <td className="data-row-actions">{editingIndex === index ? <><button type="button" onClick={saveEditedRecord}>Save</button><button type="button" className="cancel-edit-button" onClick={() => { setEditingIndex(null); setDraftRecord(null); }}>Cancel</button></> : <button type="button" onClick={() => beginEdit(index, record)}>Edit</button>}</td>}</tr>)}</tbody></table></div> : <div className="empty-state"><BookOpen size={24} /><b>{rows.length ? 'No matching records' : 'No ' + title.toLowerCase() + ' loaded'}</b><span>{rows.length ? 'No records match the selected region, REC, and classes.' : 'Import the Ibtida classroom data file when it is available to populate this panel.'}</span></div>}
   </section>;
 }
@@ -451,8 +509,7 @@ const ibtidaBasicFields = [
   { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
   { id: 'dailyDuration', label: 'Time duration per day for Ibtida class' },
   { id: 'classTimings', label: 'Time of classes' },
-  { id: 'femaleStudents', label: 'Number of female students', type: 'number' },
-  { id: 'maleStudents', label: 'Number of male students', type: 'number' },
+  { id: 'numberOfStudents', label: 'Number of students', type: 'number' },
   { id: 'modelFunctioning', label: 'Is the model functioning?', type: 'yesno' },
   { id: 'curriculumGuidelines', label: 'Ibtida curriculum guidelines are available', type: 'yesno' },
   { id: 'lowCostMaterials', label: 'Low-cost or no-cost learning materials are available', type: 'yesno' },
@@ -607,10 +664,12 @@ function historicalFieldContext(record, fieldId) {
   return '';
 }
 
-function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
+function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord, accessRecord }) {
   const profileId = [region, localBoard, recName].join('::');
   const sourcePrefill = useMemo(() => sourceRecord ? {
-    ...(sourceRecord.prefill || {}),
+    ...Object.fromEntries(Object.entries(sourceRecord.prefill || {}).filter(([field]) => !['femaleStudents', 'maleStudents'].includes(field))),
+    numberOfStudents: accessRecord?.latestEnrollment ?? sourceRecord.prefill?.numberOfStudents ?? '',
+    numberOfStudentsSource: accessRecord?.latestEnrollment !== null && accessRecord?.latestEnrollment !== undefined ? 'access' : (sourceRecord.prefill?.numberOfStudentsSource || ''),
     yearInitiated: sourceRecord.prefill?.yearInitiated ?? sourceRecord.initiated?.year ?? '',
     sustainabilityYear: sourceRecord.sustainability?.year ?? '',
     repoYear: sourceRecord.repo?.year ?? '',
@@ -619,7 +678,7 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
     renovationStatus: getRenovationStatus(sourceRecord),
     kitProvisionAtInitiation: sourceRecord.initiated?.resourceKitProvided || '',
     kitProvisionAtSustainability: sourceRecord.sustainability?.resourceKitProvided || '',
-  } : null, [sourceRecord]);
+  } : (accessRecord ? { numberOfStudents: accessRecord.latestEnrollment ?? '', numberOfStudentsSource: 'access' } : null), [sourceRecord, accessRecord]);
   const [profile, setProfile] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.ibtida-classrooms') || '{}')[profileId] || sourcePrefill || {}; }
     catch { return sourcePrefill || {}; }
@@ -647,7 +706,7 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   const groups = ibtidaGroupsForModel(profile.model);
 
   function update(field, value) {
-    setProfile((current) => ({ ...current, [field]: value }));
+    setProfile((current) => ({ ...current, [field]: value, ...(field === 'numberOfStudents' ? { numberOfStudentsSource: 'manual' } : {}) }));
   }
 
   function updateTeacher(index, field, value) {
