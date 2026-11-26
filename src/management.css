@@ -146,3 +146,23 @@
 
 .ibtida-field-history{display:block;margin-top:4px;color:#7a887b;font:500 9px/1.45 'DM Sans',sans-serif}
 .ibtida-saved-group dl .ibtida-field-history{grid-column:1/-1;margin-top:-4px;padding:0 1px 4px}
+
+.ibtida-review-card{padding:15px;background:#fff}
+.ibtida-review-card.is-confirmed{border-color:#cfe2cf}
+.ibtida-review-card.needs-confirmation{border-color:#e3e9df}
+.ibtida-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ibtida-section-heading h3{margin:0}
+.ibtida-section-status{display:flex;align-items:center;gap:10px}
+.ibtida-green-check{display:inline-flex;align-items:center;gap:4px;color:#347c43;font:700 10px 'DM Sans',sans-serif}
+.ibtida-pending-check{color:#8a8170;font:600 10px 'DM Sans',sans-serif}
+.ibtida-change-button{border:1px solid #dce6da;border-radius:7px;background:#fff;color:#4d7653;padding:7px 11px;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+.ibtida-change-button:hover{background:#f2f7f1}
+.ibtida-section-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.ibtida-confirmed-button{background:#edf7ed;color:#347c43;border-color:#cfe2cf}
+.ibtida-editing-card{border-color:#bdd5bf;background:#f7faf6}
+.ibtida-side-by-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ibtida-compare-pane{min-width:0;padding:13px;border:1px solid #e5ebe3;border-radius:9px;background:#fff}
+.ibtida-compare-pane h4{margin:0 0 11px;color:#4d6e53;font:700 12px Manrope,sans-serif}
+.ibtida-change-pane{background:#fbfdfb}
+.ibtida-section-help{margin:5px 2px;color:#7d887f;font:10px/1.5 'DM Sans',sans-serif}
+@media(max-width:700px){.ibtida-side-by-side{grid-template-columns:1fr}.ibtida-section-heading{align-items:flex-start}.ibtida-section-status{flex-wrap:wrap;justify-content:flex-end}.ibtida-section-actions{flex-wrap:wrap}}
