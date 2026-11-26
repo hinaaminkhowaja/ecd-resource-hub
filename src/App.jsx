@@ -367,7 +367,7 @@ function AccessEnrollmentPanel({ data }) {
   const [visibleLimit, setVisibleLimit] = useState(100);
   const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
   const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
-  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (className === 'All classes' || record.className === className) && (!query || `${record.recName} ${record.localBoard} ${record.region}`.toLowerCase().includes(query.toLowerCase())), [records, region, localBoard, recName, className, query]);
+  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (className === 'All classes' || record.className === className) && (!query || `${record.recName} ${record.localBoard} ${record.region}`.toLowerCase().includes(query.toLowerCase()))), [records, region, localBoard, recName, className, query]);
   const summaryRecords = useMemo(() => records.filter((record) => className === 'All classes' || record.className === className), [records, className]);
   const summaries = useMemo(() => {
     const groups = new Map();
