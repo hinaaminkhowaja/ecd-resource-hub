@@ -395,8 +395,8 @@ function AccessEnrollmentPanel({ data }) {
     { label: 'Nursery', classes: ['Nursery'] },
     { label: 'KG I', classes: ['KG I'] },
     { label: 'KG II', classes: ['KG II'] },
-    { label: 'Ibtida–KG I', classes: ['Ibtida', 'Nursery', 'KG I'] },
     { label: 'Ibtida–KG II', classes: ['Ibtida', 'Nursery', 'KG I', 'KG II'] },
+    { label: 'Ibtida–KG I', classes: ['Ibtida', 'Nursery', 'KG I'] },
     { label: 'Nursery–KG I', classes: ['Nursery', 'KG I'] },
   ];
   const classNames = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
