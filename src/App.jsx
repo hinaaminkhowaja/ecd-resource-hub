@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownToLine, BookOpen, Boxes, CalendarPlus, ChevronDown, CircleHelp,
   FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
@@ -369,6 +369,7 @@ function AccessEnrollmentPanel({ data }) {
   const [followupGroup, setFollowupGroup] = useState('');
   const [issueSyncStatus, setIssueSyncStatus] = useState('loading');
   const [issueSyncReady, setIssueSyncReady] = useState(false);
+  const issueUpdateQueue = useRef(new Map());
   const [issueNotes, setIssueNotes] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
     catch { return {}; }
@@ -423,9 +424,12 @@ function AccessEnrollmentPanel({ data }) {
     if (!issueSyncReady) return undefined;
     setIssueSyncStatus('saving');
     const timer = window.setTimeout(() => {
-      fetch('/api/access-issues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ issues: issueNotes }) })
+      const updates = Object.fromEntries(issueUpdateQueue.current);
+      if (!Object.keys(updates).length) { setIssueSyncStatus('shared'); return; }
+      issueUpdateQueue.current.clear();
+      fetch('/api/access-issues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) })
         .then((response) => { if (!response.ok) throw new Error('Could not save shared issue notes.'); setIssueSyncStatus('shared'); })
-        .catch(() => setIssueSyncStatus('device'));
+        .catch(() => { Object.entries(updates).forEach(([key, issue]) => issueUpdateQueue.current.set(key, issue)); setIssueSyncStatus('device'); });
     }, 500);
     return () => window.clearTimeout(timer);
   }, [issueNotes, issueSyncReady]);
@@ -442,7 +446,11 @@ function AccessEnrollmentPanel({ data }) {
   const classesForFollowup = classGroups.map((group) => group.label);
   const fmtDiff = (value) => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toLocaleString();
   const diffClass = (value) => value !== null && value !== undefined && Number(value) !== 0 ? 'access-difference-cell' : '';
-  const updateIssue = (key, field, value) => setIssueNotes((current) => ({ ...current, [key]: { ...(current[key] || {}), [field]: value, updatedAt: new Date().toISOString() } }));
+  const updateIssue = (key, field, value) => {
+    const updated = { ...(issueNotes[key] || {}), [field]: value, updatedAt: new Date().toISOString() };
+    issueUpdateQueue.current.set(key, updated);
+    setIssueNotes((current) => ({ ...current, [key]: updated }));
+  };
   return <section className="panel-section access-enrollment-panel">
     <div className="panel-action-row"><p>2026 quarterly enrolment, regional and class totals, and adequate access. Differences from 2025 and between quarters are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
