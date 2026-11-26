@@ -6,4 +6,4 @@ dist/
 *.log
 /data/receipt-store.json
 .DS_Store
-
+/data/access-issues.json
