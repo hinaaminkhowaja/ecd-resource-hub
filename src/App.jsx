@@ -362,42 +362,87 @@ function AccessEnrollmentPanel({ data }) {
   const [region, setRegion] = useState('');
   const [localBoard, setLocalBoard] = useState('');
   const [recName, setRecName] = useState('');
-  const [className, setClassName] = useState('All classes');
+  const [classFilter, setClassFilter] = useState('');
   const [query, setQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(100);
+  const [followupRegion, setFollowupRegion] = useState('');
+  const [followupGroup, setFollowupGroup] = useState('');
+  const [issueNotes, setIssueNotes] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
+    catch { return {}; }
+  });
   const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
   const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
-  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (className === 'All classes' || record.className === className) && (!query || `${record.recName} ${record.localBoard} ${record.region}`.toLowerCase().includes(query.toLowerCase()))), [records, region, localBoard, recName, className, query]);
-  const summaryRecords = useMemo(() => records.filter((record) => className === 'All classes' || record.className === className), [records, className]);
-  const summaries = useMemo(() => {
-    const groups = new Map();
-    summaryRecords.forEach((record) => {
-      const key = `${record.region}::${className === 'All classes' ? 'All classes' : record.className}`;
-      const row = groups.get(key) || { region: record.region, className: className === 'All classes' ? 'All classes' : record.className, recs: 0, enrollment2025: 0, q1: 0, q2: 0, q3: 0, q4: 0, q1Vs2025: 0, q2VsQ1: 0, q3VsQ2: 0, q4VsQ3: 0, q4Vs2025: 0, seen: {} };
-      if (record.className === 'Ibtida' || className !== 'All classes') row.recs += 1;
-      ['enrollment2025','q1','q2','q3','q4','q1Vs2025','q2VsQ1','q3VsQ2','q4VsQ3','q4Vs2025'].forEach((field) => { if (record[field] !== null && record[field] !== undefined) { row[field] += Number(record[field]); row.seen[field] = true; } });
-      groups.set(key, row);
-    });
-    return [...groups.values()].map((row) => ({ ...row, recs: className === 'All classes' ? records.filter((record) => record.region === row.region && record.className === 'Ibtida').length : row.recs, ...Object.fromEntries(['enrollment2025','q1','q2','q3','q4','q1Vs2025','q2VsQ1','q3VsQ2','q4VsQ3','q4Vs2025'].map((field) => [field, row.seen[field] ? row[field] : null])) })).sort((a,b) => a.region.localeCompare(b.region) || a.className.localeCompare(b.className));
-  }, [summaryRecords, className, records]);
-  const summaryTitle = className === 'All classes' ? 'All classes combined' : className;
+  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (!classFilter || record.className === classFilter) && (!query || (record.recName + ' ' + record.localBoard + ' ' + record.region).toLowerCase().includes(query.toLowerCase())), [records, region, localBoard, recName, classFilter, query]);
+  const classGroups = [
+    { label: 'Ibtida', classes: ['Ibtida'] },
+    { label: 'Nursery', classes: ['Nursery'] },
+    { label: 'KG I', classes: ['KG I'] },
+    { label: 'KG II', classes: ['KG II'] },
+    { label: 'Ibtida–KG I', classes: ['Ibtida', 'Nursery', 'KG I'] },
+    { label: 'Ibtida–KG II', classes: ['Ibtida', 'Nursery', 'KG I', 'KG II'] },
+  ];
+  const summaryRows = useMemo(() => {
+    const makeSummary = (regionName, group) => {
+      const subset = records.filter((record) => record.region === regionName && group.classes.includes(record.className));
+      const sum = (field) => {
+        const values = subset.map((record) => record[field]).filter((value) => value !== null && value !== undefined && value !== '');
+        return values.length ? values.reduce((total, value) => total + Number(value), 0) : null;
+      };
+      const enrollment2025 = sum('enrollment2025');
+      const q1 = sum('q1');
+      const q2 = sum('q2');
+      const q3 = sum('q3');
+      const q4 = sum('q4');
+      const delta = (later, earlier) => later !== null && earlier !== null ? later - earlier : null;
+      return {
+        region: regionName, group: group.label,
+        recs: new Set(subset.map((record) => record.recCode)).size,
+        enrollment2025, q1, q2, q3, q4,
+        q1Vs2025: delta(q1, enrollment2025), q2VsQ1: delta(q2, q1),
+        q3VsQ2: delta(q3, q2), q4VsQ3: delta(q4, q3), q4Vs2025: delta(q4, enrollment2025),
+        adequateQ1: sum('adequateQ1'), moderateQ1: sum('moderateQ1'), lowQ1: sum('lowQ1'), nonQ1: sum('nonQ1'),
+      };
+    };
+    return regions.flatMap((regionName) => classGroups.map((group) => makeSummary(regionName, group)));
+  }, [records, regions]);
+  useEffect(() => {
+    window.localStorage.setItem('ecd-resource-hub.access-issues', JSON.stringify(issueNotes));
+  }, [issueNotes]);
+  const differenceFields = [
+    ['q1Vs2025', 'Q1 vs 2025'], ['q2VsQ1', 'Q2 vs Q1'], ['q3VsQ2', 'Q3 vs Q2'],
+    ['q4VsQ3', 'Q4 vs Q3'], ['q4Vs2025', 'Q4 vs 2025'],
+  ];
+  const issueItems = summaryRows.flatMap((row) => differenceFields.filter(([field]) => row[field] !== null && row[field] !== 0).map(([field, label]) => ({
+    key: row.region + '::' + row.group + '::' + field,
+    region: row.region, group: row.group, label, value: row[field],
+  }))).filter((item) => (!followupRegion || item.region === followupRegion) && (!followupGroup || item.group === followupGroup));
   const shown = filtered.slice(0, visibleLimit);
-  const classes = ['All classes', 'Ibtida', 'Nursery', 'KG I', 'KG II'];
+  const classNames = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
+  const classesForFollowup = classGroups.map((group) => group.label);
+  const fmtDiff = (value) => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toLocaleString();
+  const diffClass = (value) => value !== null && value !== undefined && Number(value) !== 0 ? 'access-difference-cell' : '';
+  const updateIssue = (key, field, value) => setIssueNotes((current) => ({ ...current, [key]: { ...(current[key] || {}), [field]: value, updatedAt: new Date().toISOString() } }));
   return <section className="panel-section access-enrollment-panel">
-    <div className="panel-action-row"><p>2026 enrolment by quarter, linked to each REC and classroom class. 2025 is shown as the workbook’s baseline.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
+    <div className="panel-action-row"><p>2026 quarterly enrolment, regional and class totals, and adequate access. Differences from 2025 and between quarters are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
       {data.unmatchedRECCount > 0 && <div className="access-directory-note"><b>{data.unmatchedRECCount} RECs in this workbook are not in the existing REC directory.</b><span>Their enrollment remains visible here. They cannot appear in Classroom Data selectors until the REC source list includes: {(data.unmatchedRECNames || []).join(', ')}.</span></div>}
       <div className="access-targets"><div><span className="eyebrow">2026 ENROLMENT TARGETS</span><h2>Regional targets from the workbook</h2></div><div className="access-table-wrap"><table className="data-table access-target-table"><thead><tr><th>Region</th><th>Ibtida</th><th>Nursery–KG I</th><th>ECD total · Ibtida–KG I</th></tr></thead><tbody>{(data.regions || []).map((target) => <tr key={target.region}><td>{target.region}</td><td>{displayCount(target.ibtida)}</td><td>{displayCount(target.nurseryKg1)}</td><td>{displayCount(target.ecdIbtidaKg1)}</td></tr>)}<tr className="access-target-total"><td>Total</td><td>{displayCount((data.regions || []).reduce((sum, row) => sum + (row.ibtida || 0), 0))}</td><td>{displayCount((data.regions || []).reduce((sum, row) => sum + (row.nurseryKg1 || 0), 0))}</td><td>{displayCount((data.regions || []).reduce((sum, row) => sum + (row.ecdIbtidaKg1 || 0), 0))}</td></tr></tbody></table></div></div>
-      <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>{summaryTitle}</h2></div><label className="form-field">Summary class<select value={className} onChange={(event) => { setClassName(event.target.value); setVisibleLimit(100); }}><option>All classes</option>{classes.slice(1).map((name) => <option key={name}>{name}</option>)}</select></label></div>
-      <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th></tr></thead><tbody>{summaries.map((row) => <tr key={`${row.region}-${row.className}`}><td>{row.region}</td><td>{row.className}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td>{displayCount(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td>{displayCount(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td>{displayCount(row.q4VsQ3)}</td><td>{displayCount(row.q4Vs2025)}</td></tr>)}</tbody></table></div>
+      <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>Separate classes and combined enrolment</h2></div></div>
+      <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class / group</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th></tr></thead><tbody>{summaryRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td className={diffClass(row.q1Vs2025)}>{fmtDiff(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2VsQ1)}>{fmtDiff(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3VsQ2)}>{fmtDiff(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4VsQ3)}>{fmtDiff(row.q4VsQ3)}</td><td className={diffClass(row.q4Vs2025)}>{fmtDiff(row.q4Vs2025)}</td><td>{displayCount(row.adequateQ1)}</td><td>{displayCount(row.moderateQ1)}</td><td>{displayCount(row.lowQ1)}</td><td>{displayCount(row.nonQ1)}</td></tr>)}</tbody></table></div>
+      <section className="access-followup">
+        <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record an issue or reason and assign a person to follow up. Notes save on this device.</p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
+        <div className="classroom-location-selects access-followup-filters"><label className="form-field">Region<select value={followupRegion} onChange={(event) => setFollowupRegion(event.target.value)}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Class / group<select value={followupGroup} onChange={(event) => setFollowupGroup(event.target.value)}><option value="">All classes and groups</option>{classesForFollowup.map((value) => <option key={value}>{value}</option>)}</select></label></div>
+        {issueItems.length ? <div className="access-issue-list">{issueItems.slice(0, 60).map((item) => <article className="access-issue-card" key={item.key}><div className="access-issue-heading"><span><b>{item.region}</b><small>{item.group}</small></span><strong className="access-difference-pill">{item.label}: {fmtDiff(item.value)}</strong></div><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes[item.key]?.reason || ''} onChange={(event) => updateIssue(item.key, 'reason', event.target.value)} placeholder="Describe the reason for this change" /></label><label className="form-field">Assigned user<input value={issueNotes[item.key]?.assignedUser || ''} onChange={(event) => updateIssue(item.key, 'assignedUser', event.target.value)} placeholder="Enter the responsible person’s name" /></label></article>)}</div> : <div className="empty-state"><b>No non-zero differences for these filters</b></div>}
+        {issueItems.length > 60 && <span className="access-followup-limit">Showing 60 of {issueItems.length.toLocaleString()} differences. Use the region and class filters to narrow the list.</span>}
+      </section>
       <div className="access-detail-heading"><div><span className="eyebrow">REC-WISE DATA</span><h2>Quarterly enrolment by class</h2></div><span>{filtered.length.toLocaleString()} matching records</span></div>
-      <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); setVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Local Board<select value={localBoard} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); setVisibleLimit(100); }}><option value="">All local boards</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">REC<select value={recName} onChange={(event) => { setRecName(event.target.value); setVisibleLimit(100); }}><option value="">All RECs</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label><label className="form-field">Class<select value={className === 'All classes' ? '' : className} onChange={(event) => { setClassName(event.target.value || 'All classes'); setVisibleLimit(100); }}><option value="">All classes</option>{classes.slice(1).map((name) => <option key={name}>{name}</option>)}</select></label><label className="form-field">Search REC<input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }} placeholder="REC or board name" /></label></div></div>
-      <div className="access-table-wrap"><table className="data-table"><thead><tr><th>Region</th><th>Local Board</th><th>REC</th><th>Class</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Latest</th></tr></thead><tbody>{shown.map((record, index) => <tr key={`${record.recCode}-${record.classCode}-${index}`}><td>{record.region}</td><td>{record.localBoard}</td><td>{record.recName}</td><td>{record.className}</td><td>{displayCount(record.enrollment2025)}</td><td>{displayCount(record.q1)}</td><td>{displayCount(record.q1Vs2025)}</td><td>{displayCount(record.q2)}</td><td>{displayCount(record.q2VsQ1)}</td><td>{displayCount(record.q3)}</td><td>{displayCount(record.q3VsQ2)}</td><td>{displayCount(record.q4)}</td><td>{displayCount(record.q4VsQ3)}</td><td>{displayCount(record.q4Vs2025)}</td><td>{displayCount(record.latestEnrollment)}{record.latestQuarter ? ` (${record.latestQuarter})` : ''}</td></tr>)}</tbody></table></div>
+      <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); setVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Local Board<select value={localBoard} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); setVisibleLimit(100); }}><option value="">All local boards</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">REC<select value={recName} onChange={(event) => { setRecName(event.target.value); setVisibleLimit(100); }}><option value="">All RECs</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label><label className="form-field">Class<select value={classFilter} onChange={(event) => { setClassFilter(event.target.value); setVisibleLimit(100); }}><option value="">All classes</option>{classNames.map((name) => <option key={name}>{name}</option>)}</select></label><label className="form-field">Search REC<input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }} placeholder="REC or board name" /></label></div></div>
+      <div className="access-table-wrap"><table className="data-table"><thead><tr><th>Region</th><th>Local Board</th><th>REC</th><th>Class</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th><th>Adequate access Q1</th><th>Latest</th></tr></thead><tbody>{shown.map((record, index) => <tr key={record.recCode + '-' + record.classCode + '-' + index}><td>{record.region}</td><td>{record.localBoard}</td><td>{record.recName}{record.directoryMatch === false ? ' · not in REC directory' : ''}</td><td>{record.className}</td><td>{displayCount(record.enrollment2025)}</td><td>{displayCount(record.q1)}</td><td className={diffClass(record.q1Vs2025)}>{fmtDiff(record.q1Vs2025)}</td><td>{displayCount(record.q2)}</td><td className={diffClass(record.q2VsQ1)}>{fmtDiff(record.q2VsQ1)}</td><td>{displayCount(record.q3)}</td><td className={diffClass(record.q3VsQ2)}>{fmtDiff(record.q3VsQ2)}</td><td>{displayCount(record.q4)}</td><td className={diffClass(record.q4VsQ3)}>{fmtDiff(record.q4VsQ3)}</td><td className={diffClass(record.q4Vs2025)}>{fmtDiff(record.q4Vs2025)}</td><td>{displayCount(record.adequateQ1)}</td><td>{displayCount(record.moderateQ1)}</td><td>{displayCount(record.lowQ1)}</td><td>{displayCount(record.nonQ1)}</td><td>{record.q1 && record.adequateQ1 !== null && record.adequateQ1 !== undefined ? (Number(record.adequateQ1) / Number(record.q1) * 100).toFixed(1) + '%' : '—'}</td><td>{displayCount(record.latestEnrollment)}{record.latestQuarter ? ' (' + record.latestQuarter + ')' : ''}</td></tr>)}</tbody></table></div>
       {filtered.length > shown.length && <button type="button" className="show-more-access" onClick={() => setVisibleLimit((limit) => limit + 100)}>Show 100 more records</button>}
     </>}
   </section>;
 }
-
 function DataPanel({ title, storageKey, showRecClassFilters = false, sourceRecords = [], accessRecords = [] }) {
   const [rows, setRows] = useState(() => readLocalList(storageKey));
   const [message, setMessage] = useState('');
