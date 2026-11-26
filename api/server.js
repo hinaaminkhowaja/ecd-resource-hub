@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
 const accessIssuesPath = path.join(storeDirectory, 'access-issues.json');
+let accessIssueWriteQueue = Promise.resolve();
 const port = Number(process.env.API_PORT || 3001);
 async function readReceipts() {
   try {
@@ -94,16 +95,20 @@ const server = http.createServer(async (request, response) => {
         response.end(JSON.stringify({ error: 'Issue updates must be a record.' }));
         return;
       }
-      const issues = await readAccessIssues();
-      Object.entries(body.updates).forEach(([key, update]) => {
-        if (!key || !update || typeof update !== 'object' || Array.isArray(update)) return;
-        issues[key] = {
-          reason: String(update.reason || '').slice(0, 5000),
-          assignedUser: String(update.assignedUser || '').slice(0, 250),
-          updatedAt: String(update.updatedAt || new Date().toISOString()),
-        };
+      const saveUpdates = accessIssueWriteQueue.then(async () => {
+        const issues = await readAccessIssues();
+        Object.entries(body.updates).forEach(([key, update]) => {
+          if (!key || !update || typeof update !== 'object' || Array.isArray(update)) return;
+          issues[key] = {
+            reason: String(update.reason || '').slice(0, 5000),
+            assignedUser: String(update.assignedUser || '').slice(0, 250),
+            updatedAt: String(update.updatedAt || new Date().toISOString()),
+          };
+        });
+        await writeAccessIssues(issues);
       });
-      await writeAccessIssues(issues);
+      accessIssueWriteQueue = saveUpdates.catch(() => {});
+      await saveUpdates;
       response.end(JSON.stringify({ saved: true }));
     } catch (error) {
       response.statusCode = 400;
