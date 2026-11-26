@@ -377,7 +377,17 @@ function AccessEnrollmentPanel({ data }) {
   });
   const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
   const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
-  const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (!classFilter || record.className === classFilter) && (!query || (record.recName + ' ' + record.localBoard + ' ' + record.region).toLowerCase().includes(query.toLowerCase())))), [records, region, localBoard, recName, classFilter, query]);
+  const filtered = useMemo(() => {
+    const searchText = query.toLowerCase();
+    return records.filter((record) => {
+      const matchesSearch = !searchText || (record.recName + ' ' + record.localBoard + ' ' + record.region).toLowerCase().includes(searchText);
+      return (!region || record.region === region)
+        && (!localBoard || record.localBoard === localBoard)
+        && (!recName || record.recName === recName)
+        && (!classFilter || record.className === classFilter)
+        && matchesSearch;
+    });
+  }, [records, region, localBoard, recName, classFilter, query]);
   const classGroups = [
     { label: 'Ibtida', classes: ['Ibtida'] },
     { label: 'Nursery', classes: ['Nursery'] },
