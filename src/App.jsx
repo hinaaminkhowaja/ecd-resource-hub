@@ -446,7 +446,6 @@ const ibtidaBasicFields = [
   { id: 'yearInitiated', label: 'Year initiated', type: 'number' },
   { id: 'sustainabilityYear', label: 'Sustainability year', type: 'number' },
   { id: 'repoYear', label: 'REPO year', type: 'number' },
-  { id: 'assessmentDate', label: 'Latest assessment date', type: 'date' },
   { id: 'modelAtInitiation', label: 'Model at initiation' },
   { id: 'modelAtSustainability', label: 'Model at sustainability' },
   { id: 'daysClassesConducted', label: 'Number of days classes are conducted', type: 'number' },
@@ -474,8 +473,7 @@ const ibtidaRoomsGroup = {
     { id: 'roomAgeAppropriate', label: 'Room is age appropriate for children', type: 'yesno' },
     { id: 'otherClassesSameRoom', label: 'Any other classes conducted in the same room?', type: 'text' },
     { id: 'parwaazSameRoom', label: 'Are Parwaaz sessions conducted in the same room?', type: 'yesno' },
-    { id: 'roomRenovationInitiated', label: 'Renovation at initiation' },
-    { id: 'roomRenovationSustainability', label: 'Renovation at sustainability' },
+    { id: 'renovationStatus', label: 'Renovation provided?', type: 'recordStatus' },
   ],
 };
 const ibtidaFurnitureGroup = {
@@ -491,8 +489,6 @@ const ibtidaFurnitureGroup = {
     { id: 'whiteBoard', label: 'White board', type: 'checkQuantity' },
     { id: 'cupboard', label: 'Cupboard', type: 'checkQuantity' },
     { id: 'moveableShelves', label: 'Moveable shelves made from low-cost materials', type: 'check' },
-    { id: 'itemsProvidedAtInitiation', label: 'Other items provided at initiation' },
-    { id: 'itemsProvidedAtSustainability', label: 'Items provided at sustainability', type: 'textarea' },
   ],
 };
 const ibtidaKitGroup = {
@@ -517,11 +513,6 @@ const ibtidaKitGroup = {
     { id: 'kitRingsTower', label: 'Rings or tower', type: 'check' },
     { id: 'kitStationery', label: 'Stationery', type: 'check' },
     { id: 'kitStoryBooks', label: 'Story books', type: 'check' },
-    { id: 'kitRow13', label: 'Resource kit item — row 13', type: 'check' },
-    { id: 'kitRow14', label: 'Resource kit item — row 14', type: 'check' },
-    { id: 'kitRow15', label: 'Resource kit item — row 15', type: 'check' },
-    { id: 'kitRow16', label: 'Resource kit item — row 16', type: 'check' },
-    { id: 'kitRow17', label: 'Resource kit item — row 17', type: 'check' },
     { id: 'parwaazKitAvailable', label: 'Parwaaz kit is available in the room', type: 'check' },
     { id: 'parwaazKitUsedByIbtida', label: 'Parwaaz kit is used by Ibtida children', type: 'check' },
     { id: 'ibtidaKitUsedInParwaaz', label: 'Ibtida kit is used in Parwaaz sessions', type: 'check' },
@@ -574,6 +565,17 @@ function displayIbtidaValue(profile, field) {
   return profile[field.id] || 'Not recorded';
 }
 
+function getRenovationStatus(record) {
+  if (!record) return 'Not recorded';
+  const values = [record.initiated?.renovation, record.sustainability?.renovation]
+    .filter((value) => value !== null && value !== undefined && value !== '');
+  if (!values.length) return 'Not recorded';
+  const normalized = values.map((value) => String(value).trim().toLowerCase());
+  if (normalized.some((value) => value === 'yes' || (Number.isFinite(Number(value)) && Number(value) > 0))) return 'Yes';
+  if (normalized.every((value) => value === 'no' || (Number.isFinite(Number(value)) && Number(value) === 0))) return 'No';
+  return 'Not recorded';
+}
+
 function historicalFieldContext(record, fieldId) {
   if (!record) return '';
   const furnitureIds = {
@@ -612,13 +614,9 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
     yearInitiated: sourceRecord.prefill?.yearInitiated ?? sourceRecord.initiated?.year ?? '',
     sustainabilityYear: sourceRecord.sustainability?.year ?? '',
     repoYear: sourceRecord.repo?.year ?? '',
-    assessmentDate: sourceRecord.assessments2023?.at(-1)?.assessedOn || '',
     modelAtInitiation: sourceRecord.initiated?.model || '',
     modelAtSustainability: sourceRecord.sustainability?.model || '',
-    roomRenovationInitiated: sourceRecord.initiated?.renovation ?? '',
-    roomRenovationSustainability: sourceRecord.sustainability?.renovation ?? '',
-    itemsProvidedAtInitiation: sourceRecord.initiated?.otherItemsProvided || '',
-    itemsProvidedAtSustainability: sourceRecord.sustainability?.itemsProvided || '',
+    renovationStatus: getRenovationStatus(sourceRecord),
     kitProvisionAtInitiation: sourceRecord.initiated?.resourceKitProvided || '',
     kitProvisionAtSustainability: sourceRecord.sustainability?.resourceKitProvided || '',
   } : null, [sourceRecord]);
@@ -717,6 +715,7 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord }) {
   function renderField(field) {
     const value = profile[field.id] || '';
     if (field.type === 'model') return <select required value={value} onChange={(event) => update(field.id, event.target.value)}><option value="">Select a model</option>{ibtidaModels.map((model) => <option key={model}>{model}</option>)}</select>;
+    if (field.type === 'recordStatus') return <select value={value} onChange={(event) => update(field.id, event.target.value)}><option value="Not recorded">Not recorded</option><option>Yes</option><option>No</option></select>;
     if (field.type === 'yesno') return <select value={value} onChange={(event) => update(field.id, event.target.value)}><option value="">Choose</option><option>Yes</option><option>No</option><option>Not observed</option></select>;
     if (field.type === 'check') return <label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>;
     if (field.type === 'checkQuantity') return <div className="ibtida-tick-quantity"><label className="ibtida-tick-choice"><input type="checkbox" checked={value === 'Yes'} onChange={(event) => update(field.id, event.target.checked ? 'Yes' : 'No')} /><span>Available</span></label>{value === 'Yes' && <input type="number" min="0" aria-label={field.label + ' quantity'} placeholder="Quantity" value={profile[field.id + 'Quantity'] || ''} onChange={(event) => update(field.id + 'Quantity', event.target.value)} />}</div>;
