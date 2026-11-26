@@ -368,9 +368,10 @@ function AccessEnrollmentPanel({ data }) {
   const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
   const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
   const filtered = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard) && (!recName || record.recName === recName) && (className === 'All classes' || record.className === className) && (!query || `${record.recName} ${record.localBoard} ${record.region}`.toLowerCase().includes(query.toLowerCase())), [records, region, localBoard, recName, className, query]);
+  const summaryRecords = useMemo(() => records.filter((record) => className === 'All classes' || record.className === className), [records, className]);
   const summaries = useMemo(() => {
     const groups = new Map();
-    filtered.forEach((record) => {
+    summaryRecords.forEach((record) => {
       const key = `${record.region}::${className === 'All classes' ? 'All classes' : record.className}`;
       const row = groups.get(key) || { region: record.region, className: className === 'All classes' ? 'All classes' : record.className, recs: 0, enrollment2025: 0, q1: 0, q2: 0, q3: 0, q4: 0, q1Vs2025: 0, q2VsQ1: 0, q3VsQ2: 0, q4VsQ3: 0, q4Vs2025: 0, seen: {} };
       if (record.className === 'Ibtida' || className !== 'All classes') row.recs += 1;
@@ -378,7 +379,7 @@ function AccessEnrollmentPanel({ data }) {
       groups.set(key, row);
     });
     return [...groups.values()].map((row) => ({ ...row, recs: className === 'All classes' ? records.filter((record) => record.region === row.region && record.className === 'Ibtida').length : row.recs, ...Object.fromEntries(['enrollment2025','q1','q2','q3','q4','q1Vs2025','q2VsQ1','q3VsQ2','q4VsQ3','q4Vs2025'].map((field) => [field, row.seen[field] ? row[field] : null])) })).sort((a,b) => a.region.localeCompare(b.region) || a.className.localeCompare(b.className));
-  }, [filtered, className, records]);
+  }, [summaryRecords, className, records]);
   const summaryTitle = className === 'All classes' ? 'All classes combined' : className;
   const shown = filtered.slice(0, visibleLimit);
   const classes = ['All classes', 'Ibtida', 'Nursery', 'KG I', 'KG II'];
@@ -692,6 +693,10 @@ function IbtidaClassroomForm({ region, localBoard, recName, sourceRecord, access
   const [comparisonProfile, setComparisonProfile] = useState(null);
 
   useEffect(() => {
+    const linkedEnrollment = accessRecord?.latestEnrollment;
+    if (linkedEnrollment !== null && linkedEnrollment !== undefined && profile.numberOfStudentsSource !== 'manual' && (String(profile.numberOfStudents ?? '') !== String(linkedEnrollment) || profile.numberOfStudentsSource !== 'access')) {
+      setProfile((current) => current.numberOfStudentsSource === 'manual' ? current : { ...current, numberOfStudents: linkedEnrollment, numberOfStudentsSource: 'access' });
+    }
     if (!sourcePrefill) return;
     if (hasSavedProfile) {
       const missingFields = Object.entries(sourcePrefill).filter(([field]) => !Object.hasOwn(profile, field));
