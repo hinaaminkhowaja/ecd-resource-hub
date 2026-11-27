@@ -217,3 +217,22 @@
   .rf-local-board-groups{padding:8px}
   .rf-local-board-group ol{grid-template-columns:minmax(0,1fr);padding:8px}
 }
+
+
+/* Region colours: dark regional headers with matching pale Local Board shades. */
+.rf-panel.rf-region-0{--region-accent:#563078;--region-soft:#f1eafa;--region-border:#d8c5eb;--lb-head:#e8dcf5;--lb-bg:#faf7fd;--lb-border:#d8c5eb;--lb-text:#563078}
+.rf-panel.rf-region-1{--region-accent:#245b91;--region-soft:#eaf2fb;--region-border:#bfd3eb;--lb-head:#dce9f8;--lb-bg:#f7faff;--lb-border:#bfd3eb;--lb-text:#245b91}
+.rf-panel.rf-region-2{--region-accent:#8b5422;--region-soft:#fbf1e5;--region-border:#e8cfb2;--lb-head:#f5e5d2;--lb-bg:#fdf9f4;--lb-border:#e8cfb2;--lb-text:#8b5422}
+.rf-panel.rf-region-3{--region-accent:#176c63;--region-soft:#e8f5f2;--region-border:#b9ddd6;--lb-head:#d9eee9;--lb-bg:#f6fbfa;--lb-border:#b9ddd6;--lb-text:#176c63}
+.rf-panel.rf-region-4{--region-accent:#913e68;--region-soft:#f8eaf1;--region-border:#e5c2d3;--lb-head:#f1dce7;--lb-bg:#fdf7fa;--lb-border:#e5c2d3;--lb-text:#913e68}
+.rf-panel.rf-region-5{--region-accent:#586b28;--region-soft:#f0f4e5;--region-border:#d2dfb5;--lb-head:#e6edcf;--lb-bg:#fafbf5;--lb-border:#d2dfb5;--lb-text:#586b28}
+.rf-panel.rf-region-6{--region-accent:#984b3d;--region-soft:#f9eeeb;--region-border:#e7c8c1;--lb-head:#f2dfda;--lb-bg:#fdf8f7;--lb-border:#e7c8c1;--lb-text:#984b3d}
+.rf-panel.rf-region-7{--region-accent:#405d91;--region-soft:#edf1f9;--region-border:#c8d3e8;--lb-head:#dfe6f4;--lb-bg:#f8faff;--lb-border:#c8d3e8;--lb-text:#405d91}
+.rf-panel[class*="rf-region-"]{border-color:var(--region-border)}
+.rf-panel[class*="rf-region-"]>header{background:var(--region-accent)}
+.rf-panel[class*="rf-region-"] .rf-code{color:var(--region-accent);background:#fff}
+.rf-panel[class*="rf-region-"] .rf-local-board-group{background:var(--lb-bg);border-color:var(--lb-border)}
+.rf-panel[class*="rf-region-"] .rf-local-board-heading{background:var(--lb-head);border-color:var(--lb-border);color:var(--lb-text)}
+.rf-panel[class*="rf-region-"] .rf-local-board-heading>span{color:var(--lb-text)}
+.rf-panel[class*="rf-region-"] .rf-local-board{background:var(--region-soft);color:var(--region-accent)!important}
+.rf-filters select:focus{outline:2px solid #8ba2bf;outline-offset:1px;border-color:#7189a8}
