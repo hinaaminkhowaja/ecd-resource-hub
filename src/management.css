@@ -252,3 +252,15 @@
 .access-class-matrix thead th{background:#315b49!important;color:#fff!important;font-weight:800}
 .access-class-matrix tbody th{background:#edf3ef!important;color:#315344!important;font-weight:700}
 .access-class-matrix .access-quarter-row th,.access-class-matrix .access-quarter-row td{background:#fff!important;color:inherit!important;font-weight:800}
+
+
+/* Improve Enrolment Overview matrix readability */
+.access-class-matrix{min-width:1080px!important;border-collapse:separate;border-spacing:0;font-size:13px}
+.access-class-matrix thead th{background:#244b3b!important;color:#fff!important;font-size:12px!important;font-weight:800!important;padding:12px 10px!important;border-bottom:2px solid #173629!important;white-space:nowrap}
+.access-class-matrix thead th:first-child{min-width:175px;text-align:left}
+.access-class-matrix tbody th{background:#e6eee8!important;color:#203f31!important;font-size:12px!important;font-weight:750!important;text-align:left;padding:11px 10px!important;border-bottom:1px solid #d5dfd8!important}
+.access-class-matrix tbody td{font-size:12px!important;padding:11px 10px!important;text-align:right;white-space:nowrap;border-bottom:1px solid #e1e7e2!important;color:#26352d}
+.access-class-matrix .access-quarter-row th,.access-class-matrix .access-quarter-row td{background:#fff!important;color:#24352b!important;font-weight:800!important}
+.access-class-matrix .access-achievement-row th{background:#e8f2ec!important;color:#244b36!important;font-weight:800!important}
+.access-class-matrix .access-achievement-row td{background:#f0f7f2!important;color:#17613c!important;font-weight:800!important}
+.access-class-matrix tbody tr:hover td,.access-class-matrix tbody tr:hover th{filter:brightness(.97)}
