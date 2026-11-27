@@ -153,14 +153,17 @@ export default function RedFlagsView({ records }) {
         const regionLost = list.reduce((a, rec) => a + rec.totalDrop, 0);
         const crit = list.filter((rec) => rec.zero).length;
         const regionTone = Math.max(0, REGION_ORDER.indexOf(rg));
-        const localBoards = [...new Set(list.map((rec) => rec.localBoard || 'Unassigned'))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        const localBoards = [...new Set(items.map((rec) => rec.localBoard || 'Unassigned'))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        const boardGroups = localBoards.map((board) => ({ board, recs: items.filter((rec) => (rec.localBoard || 'Unassigned') === board) }));
         return <section key={rg} className={`rf-panel rf-region-${regionTone}`}>
           <header>
             <div><span className="rf-code">{SHORT[rg] || rg}</span><b>{regionName(rg)}</b></div>
             <div className="rf-panel-stats"><span><b>{list.length}</b> RECs flagged</span>{crit > 0 && <span className="ra-neg"><b>{crit}</b> zero Q4</span>}<span className="ra-neg"><b>{lost(regionLost)}</b> children</span></div>
           </header>
-          {items.length === 0 && <p className="rf-none">No red flags in this region at {threshold}%.</p>}
-          <ol>{items.map((rec, i) => {
+          <div className="rf-local-board-groups">{boardGroups.map(({ board, recs: boardRecs }, boardIndex) => <section className={`rf-local-board-group rf-lb-group-${boardIndex % 8}`} key={board}>
+            <div className="rf-local-board-heading"><b>{board === 'Unassigned' ? 'Local Board not specified' : board}</b><span>{boardRecs.length} {boardRecs.length === 1 ? 'REC' : 'RECs'}</span></div>
+            <ol>{boardRecs.map((rec) => {
+            const i = items.indexOf(rec);
             const reasonKey = [view, rec.recCode, 'REC'].join('::');
             const savedReason = reasons[reasonKey];
             const previousClassReasons = rec.variances.map((e) => ({ className: e.r.className, detail: reasons[[view, e.r.recCode, e.r.classCode || e.r.className].join('::')] })).filter((item) => item.detail);
@@ -201,6 +204,7 @@ export default function RedFlagsView({ records }) {
               </div>
             </li>;
           })}</ol>
+          </section>)}</div>
         </section>;
       })}
     </div>
