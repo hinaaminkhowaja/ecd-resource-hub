@@ -6,6 +6,7 @@ const REGION_ORDER = ['Southern_01', 'Central_02', 'Upper Chitral_03', 'Lower Ch
 const SHORT = { Southern_01: '1|SO', Central_02: '2|CE', 'Upper Chitral_03': '3|UC', 'Lower Chitral_04': '4|LC', 'Gupis-Yasin_05': '5|GY', 'Ishkoman-Puniyal_06': '6|IP', Hunza_07: '7|HZ', Gilgit_08: '8|GL' };
 const PREV = { Nursery: 'Ibtida', 'KG I': 'Nursery', 'KG II': 'KG I' };
 const QL = ['Q1', 'Q2', 'Q3', 'Q4'];
+const MIN_GAP = 7; // Ignore differences of 1–6 children.
 const num = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const fmt = (n) => Math.round(n).toLocaleString();
 const lost = (n) => '−' + Math.abs(Math.round(n)).toLocaleString();
@@ -20,7 +21,7 @@ export function buildPrevious(records, threshold) {
     if (base === null || base <= 0 || q4 === null) return;
     const drop = base - q4, pct = (q4 - base) / base * 100;
     const zero = q4 === 0;
-    if (!zero && pct > -threshold) return;
+    if (drop < MIN_GAP || (!zero && pct > -threshold)) return;
     out.push({ key: ['variance', r.recCode, r.classCode, 'previous-class-baseline'].join('::'), r, zero, prev: base, cur: q4, drop, pct, line: `${PREV[r.className]} 2025: ${fmt(base)} → Q4: ${fmt(q4)}`, chips: zero ? ['No children enrolled in Q4'] : [] });
   });
   return out;
@@ -55,6 +56,7 @@ export function buildQuarter(records, threshold) {
     for (let i = 2; i < 4; i++) if (q[i - 2] !== null && q[i - 1] !== null && q[i] !== null && q[i - 1] < q[i - 2] && q[i] < q[i - 1]) consecutive = true;
     if (consecutive) chips.push('Two consecutive declines');
     if (zero) chips.unshift('No children enrolled in Q4');
+    if (primary.drop < MIN_GAP) return;
     out.push({ key: ['variance', r.recCode, r.classCode, primary.type].join('::'), r, zero: Boolean(zero), prev: primary.prev, cur: primary.cur, drop: primary.drop, pct: primary.pct, line: primary.text, chips });
   });
   return out;
@@ -65,7 +67,7 @@ export default function RedFlagsView({ records }) {
   const [region, setRegion] = useState('');
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
-  const [topN, setTopN] = useState(10);
+  const topN = 10;
   const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
   const [editingReason, setEditingReason] = useState('');
   const [reasonDraft, setReasonDraft] = useState({ name: '', designation: '', reason: '' });
@@ -116,14 +118,14 @@ export default function RedFlagsView({ records }) {
     </div>
     <p className="rf-intro">{view === 'previous'
       ? 'Children missing compared with the previous class. Q4 enrolment is compared with last year’s enrolment in the preceding class: Nursery vs Ibtida, KG I vs Nursery, KG II vs KG I.'
-      : 'Children lost between quarters. Each REC is shown with its biggest drop, either from one quarter to the next or from its quarterly peak down to a later quarter.'} Flagged when the decline is {threshold}% or more, or when Q4 is zero.</p>
+      : 'Children lost between quarters. Each REC is shown with its biggest drop, either from one quarter to the next or from its quarterly peak down to a later quarter.'} Flagged when the decline is {threshold}% or more, or when Q4 is zero. Differences of fewer than 7 children are excluded.</p>
 
     <div className="rf-filters">
       <label>Region<select value={region} onChange={(e) => setRegion(e.target.value)}><option value="">All regions</option>{regions.map((v) => <option key={v} value={v}>{SHORT[v] ? SHORT[v] + ' · ' : ''}{regionName(v)}</option>)}</select></label>
       <label>Class / group<select value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All classes and groups</option>{CLASS_GROUPS.map((g) => <option key={g.label}>{g.label}</option>)}</select></label>
       <label>Flag at<select value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}>{[10, 20, 30, 50].map((v) => <option key={v} value={v}>{v}% decline</option>)}</select></label>
       <label>Rank by<select value={rank} onChange={(e) => setRank(e.target.value)}><option value="count">Children lost</option><option value="pct">Percentage decline</option></select></label>
-      <label>Display per region<select value={topN} onChange={(e) => setTopN(Number(e.target.value))}>{[10, 20, 50].map((v) => <option key={v} value={v}>Top {v} RECs</option>)}</select></label>
+      <div className="rf-fixed-top"><b>Top 10 RECs per region</b><span>Only gaps of 7 or more children are included.</span></div>
     </div>
 
     <div className="rf-kpis">
@@ -138,8 +140,7 @@ export default function RedFlagsView({ records }) {
     <div className={'rf-regions' + (shownRegions.length === 1 ? ' is-single' : '')}>
       {shownRegions.map((rg) => {
         const list = byRegion[rg] || [];
-        const expanded = open[view + rg];
-        const items = expanded ? list : list.slice(0, topN);
+        const items = list.slice(0, 10);
         const regionLost = list.reduce((a, e) => a + e.drop, 0);
         const crit = list.filter((e) => e.zero).length;
         return <section key={rg} className="rf-panel">
@@ -179,7 +180,7 @@ export default function RedFlagsView({ records }) {
               </div>
             </li>;
           })}</ol>
-          {list.length > topN && <button type="button" className="rf-more" onClick={() => setOpen((o) => ({ ...o, [view + rg]: !expanded }))}>{expanded ? 'Show top ' + topN + ' only' : 'Show all ' + list.length}</button>}
+
         </section>;
       })}
     </div>
