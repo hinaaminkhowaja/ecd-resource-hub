@@ -642,7 +642,6 @@ function AccessEnrollmentPanel({ data }) {
         <button type="button" className={section==='overview'?'active':''} onClick={()=>setSection('overview')}>Enrolment Overview</button>
         <button type="button" className={section==='rec-class'?'active':''} onClick={()=>setSection('rec-class')}>REC & Class Analysis</button>
         <button type="button" className={section==='red-flags'?'active':''} onClick={()=>setSection('red-flags')}>Variance & Red Flags</button>
-        <button type="button" className={section==='follow-up'?'active':''} onClick={()=>setSection('follow-up')}>Investigation & Follow-up</button>
       </nav>
       {section==='overview' && <>
       <section className="access-overview-dashboard">
