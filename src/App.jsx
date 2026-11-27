@@ -49,7 +49,16 @@ async function loadAccessEnrollmentData() {
   const binary = window.atob(accessEnrollmentEncoded.trim());
   const compressed = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const decompressed = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(decompressed).json();
+  const data = await new Response(decompressed).json();
+  const excludedRecCodes = new Set(['2208', '2521', '2522']);
+  data.records = (Array.isArray(data.records) ? data.records : []).filter((record) => {
+    const source = String(record.recCode ?? record.recName ?? '').trim();
+    const code = source.split('|')[0].trim();
+    return !excludedRecCodes.has(code);
+  });
+  data.unmatchedRECCount = 0;
+  data.unmatchedRECNames = [];
+  return data;
 }
 
 function displayCount(value) {
@@ -468,15 +477,9 @@ function AccessEnrollmentPanel({ data }) {
   const [summaryClasses, setSummaryClasses] = useState(['Ibtida', 'Nursery', 'KG I', 'KG II']);
   const [query, setQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(100);
-  const [followupRegion, setFollowupRegion] = useState('');
-  const [followupGroup, setFollowupGroup] = useState('');
-  const [issueVisibleLimit, setIssueVisibleLimit] = useState(60);
-  const [issueSyncStatus, setIssueSyncStatus] = useState('loading');
-  const [issueSyncReady, setIssueSyncReady] = useState(false);
   const [varianceRegion, setVarianceRegion] = useState('');
   const [varianceClass, setVarianceClass] = useState('');
   const [varianceVisibleLimit, setVarianceVisibleLimit] = useState(100);
-  const issueUpdateQueue = useRef(new Map());
   useEffect(() => {
     let active = true;
     loadEnrollmentDataset('historical').then((saved) => {
@@ -562,10 +565,6 @@ function AccessEnrollmentPanel({ data }) {
       setHistoryLimit(100);
     } catch(error) { setHistoryStatus(error.message||'Could not read this workbook. Please check its format.'); }
   }
-  const [issueNotes, setIssueNotes] = useState(() => {
-    try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
-    catch { return {}; }
-  });
   const boardOptions = useMemo(() => [...new Set(records.filter((record) => !region || record.region === region).map((record) => record.localBoard))].sort(), [records, region]);
   const recOptions = useMemo(() => records.filter((record) => (!region || record.region === region) && (!localBoard || record.localBoard === localBoard)).reduce((list, record) => list.some((item) => item.recName === record.recName) ? list : [...list, record], []), [records, region, localBoard]);
   const filtered = useMemo(() => {
@@ -628,48 +627,14 @@ function AccessEnrollmentPanel({ data }) {
     return { ...row, target, targetDifference: target !== null && row.q4 !== null ? row.q4 - target : null };
   });
   const separateSummaryRows = summaryRows.filter((row) => classNames.includes(row.group) && (!summaryRegion || row.region === summaryRegion) && summaryClasses.includes(row.group));
-  useEffect(() => {
-    let active = true;
-    fetch('/api/access-issues').then((response) => response.ok ? response.json() : Promise.reject(new Error('Shared issue storage is unavailable.'))).then((result) => {
-      if (!active) return;
-      const shared = result?.issues && typeof result.issues === 'object' ? result.issues : {};
-      setIssueNotes((current) => ({ ...current, ...shared }));
-      setIssueSyncStatus('shared');
-    }).catch(() => { if (active) setIssueSyncStatus('device'); }).finally(() => { if (active) setIssueSyncReady(true); });
-    return () => { active = false; };
-  }, []);
-  useEffect(() => {
-    window.localStorage.setItem('ecd-resource-hub.access-issues', JSON.stringify(issueNotes));
-    if (!issueSyncReady) return undefined;
-    setIssueSyncStatus('saving');
-    const timer = window.setTimeout(() => {
-      const updates = Object.fromEntries(issueUpdateQueue.current);
-      if (!Object.keys(updates).length) { setIssueSyncStatus('shared'); return; }
-      issueUpdateQueue.current.clear();
-      fetch('/api/access-issues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) })
-        .then((response) => { if (!response.ok) throw new Error('Could not save shared issue notes.'); setIssueSyncStatus('shared'); })
-        .catch(() => { Object.entries(updates).forEach(([key, issue]) => issueUpdateQueue.current.set(key, issue)); setIssueSyncStatus('device'); });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [issueNotes, issueSyncReady]);
   const differenceFields = [
     ['q1Vs2025', 'Q1 vs 2025'], ['q2VsQ1', 'Q2 vs Q1'], ['q3VsQ2', 'Q3 vs Q2'],
     ['q4VsQ3', 'Q4 vs Q3'], ['q4Vs2025', 'Q4 vs 2025'],
   ];
-  const issueItems = summaryRows.flatMap((row) => differenceFields.filter(([field]) => row[field] !== null && row[field] !== 0).map(([field, label]) => ({
-    key: row.region + '::' + row.group + '::' + field,
-    region: row.region, group: row.group, label, value: row[field],
-  }))).filter((item) => (!followupRegion || item.region === followupRegion) && (!followupGroup || item.group === followupGroup));
   const shown = filtered.slice(0, visibleLimit);
-  const classesForFollowup = classGroups.map((group) => group.label);
   const fmtDiff = (value) => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toLocaleString();
   const fmtVariancePct = (value, baseline) => value === null || value === undefined ? '—' : fmtDiff(value) + (baseline > 0 ? ' (' + (Number(value) / Number(baseline) * 100).toFixed(1) + '%)' : '');
   const diffClass = (value) => value === null || value === undefined || Number(value) === 0 ? '' : Number(value) < 0 ? 'access-difference-cell' : 'access-increase-cell';
-  const updateIssue = (key, field, value) => {
-    const updated = { ...(issueNotes[key] || {}), [field]: value, updatedAt: new Date().toISOString() };
-    issueUpdateQueue.current.set(key, updated);
-    setIssueNotes((current) => ({ ...current, [key]: updated }));
-  };
   return <section className="panel-section access-enrollment-panel">
     <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
