@@ -205,3 +205,20 @@
 .access-variance-card textarea{resize:vertical}
 .access-variance-note{margin:0;color:#778278;font-size:11px;line-height:1.5}
 @media(max-width:600px){.access-variance-summary{grid-template-columns:1fr}.access-variance-section{padding:14px}}
+
+/* Enrolment Management navigation and historical workbook view */
+.enrolment-section-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:8px;border:1px solid #e4ebe3;border-radius:12px;background:#f7faf6}
+.enrolment-section-tabs button{border:1px solid transparent;border-radius:8px;background:transparent;color:#627268;padding:10px 13px;font:700 12px 'DM Sans',sans-serif;cursor:pointer}
+.enrolment-section-tabs button:hover{background:#edf4ec;color:#3f6847}
+.enrolment-section-tabs button.active{border-color:#cbdcc9;background:#e7f1e6;color:#315e3c}
+.access-history-section{display:grid;gap:14px;padding:18px;border:1px solid #dce8dc;border-radius:14px;background:#fbfdfb}
+.access-history-section .access-detail-heading{align-items:flex-start}
+.access-history-section .access-detail-heading p{margin:6px 0 0;color:#718073;font-size:12px;line-height:1.5}
+.access-history-import{display:grid;grid-template-columns:minmax(230px,1fr) minmax(200px,1.4fr);gap:12px;align-items:end;padding:12px;border:1px dashed #b9cbb9;border-radius:9px;background:#fff}
+.access-history-import .form-field{display:grid;gap:6px;color:#4b5850;font-size:12px;font-weight:700}
+.access-history-import input{max-width:100%;font:11px 'DM Sans',sans-serif}
+.access-history-import>span{color:#65766a;font-size:11px;line-height:1.5}
+.access-history-summary{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#4b6250;font-size:11px}
+.access-history-summary span{color:#78857b}
+.access-history-table{min-width:1300px!important}
+@media(max-width:650px){.enrolment-section-tabs{display:grid;grid-template-columns:1fr 1fr}.enrolment-section-tabs button{padding:9px 7px;font-size:10px}.access-history-import{grid-template-columns:1fr}}
