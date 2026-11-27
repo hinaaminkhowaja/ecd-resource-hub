@@ -67,7 +67,6 @@ export default function RedFlagsView({ records }) {
   const [region, setRegion] = useState('');
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
-  const topN = 10;
   const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
   const [editingReason, setEditingReason] = useState('');
   const [reasonDraft, setReasonDraft] = useState({ name: '', designation: '', reason: '' });
