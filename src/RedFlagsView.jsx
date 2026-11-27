@@ -71,7 +71,6 @@ export default function RedFlagsView({ records }) {
   const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
   const [editingReason, setEditingReason] = useState('');
   const [reasonDraft, setReasonDraft] = useState({ name: '', designation: '', reason: '' });
-  const [rank, setRank] = useState('count');
   const [open, setOpen] = useState({});
 
   function saveReason(key) {
@@ -97,18 +96,30 @@ export default function RedFlagsView({ records }) {
     return [...REGION_ORDER.filter((x) => present.includes(x)), ...present.filter((x) => !REGION_ORDER.includes(x)).sort()];
   }, [records]);
 
-  const sorted = useMemo(() => [...entries].sort((a, b) => Number(b.zero) - Number(a.zero) || (rank === 'pct' ? a.pct - b.pct : b.drop - a.drop) || a.pct - b.pct), [entries, rank]);
-  const byRegion = useMemo(() => {
-    const m = {};
-    sorted.forEach((e) => { (m[e.r.region] = m[e.r.region] || []).push(e); });
-    return m;
-  }, [sorted]);
-
+  const groupedByRegion = useMemo(() => {
+    const grouped = {};
+    [...entries].sort((a, b) => a.pct - b.pct || b.drop - a.drop).forEach((e) => {
+      const regionKey = e.r.region;
+      const recKey = String(e.r.recCode || e.r.recName || 'unknown');
+      grouped[regionKey] ||= {};
+      grouped[regionKey][recKey] ||= { recCode: recKey, recName: e.r.recName, localBoard: e.r.localBoard, variances: [], worstPct: e.pct, totalDrop: 0, zero: false };
+      const rec = grouped[regionKey][recKey];
+      rec.variances.push(e);
+      rec.worstPct = Math.min(rec.worstPct, e.pct);
+      rec.totalDrop += e.drop;
+      rec.zero = rec.zero || e.zero;
+    });
+    Object.keys(grouped).forEach((key) => {
+      grouped[key] = Object.values(grouped[key]).sort((a, b) => a.worstPct - b.worstPct || b.totalDrop - a.totalDrop);
+    });
+    return grouped;
+  }, [entries]);
+  const byRegion = groupedByRegion;
   const shownRegions = region ? [region] : regions;
   const totalLost = entries.reduce((a, e) => a + e.drop, 0);
   const critical = entries.filter((e) => e.zero).length;
-  const recsAffected = new Set(entries.map((e) => e.r.recCode)).size;
-  const worst = regions.map((rg) => [rg, (byRegion[rg] || []).reduce((a, e) => a + e.drop, 0)]).sort((a, b) => b[1] - a[1])[0];
+  const recsAffected = Object.values(byRegion).reduce((sum, recs) => sum + recs.length, 0);
+  const worst = regions.map((rg) => [rg, (byRegion[rg] || []).reduce((a, rec) => a + rec.totalDrop, 0)]).sort((a, b) => b[1] - a[1])[0];
   const noPrev = view === 'previous' && group === 'Ibtida';
 
   return <div className="rf">
@@ -124,12 +135,11 @@ export default function RedFlagsView({ records }) {
       <label>Region<select value={region} onChange={(e) => setRegion(e.target.value)}><option value="">All regions</option>{regions.map((v) => <option key={v} value={v}>{SHORT[v] ? SHORT[v] + ' · ' : ''}{regionName(v)}</option>)}</select></label>
       <label>Class / group<select value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All classes and groups</option>{CLASS_GROUPS.map((g) => <option key={g.label}>{g.label}</option>)}</select></label>
       <label>Flag at<select value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}>{[10, 20, 30, 50].map((v) => <option key={v} value={v}>{v}% decline</option>)}</select></label>
-      <label>Rank by<select value={rank} onChange={(e) => setRank(e.target.value)}><option value="count">Children lost</option><option value="pct">Percentage decline</option></select></label>
       <div className="rf-fixed-top"><b>Top 10 RECs per region</b><span>Only gaps of 7 or more children are included.</span></div>
     </div>
 
     <div className="rf-kpis">
-      <div><small>RECs flagged</small><b>{recsAffected.toLocaleString()}</b><span>{entries.length.toLocaleString()} REC and class records</span></div>
+      <div><small>RECs flagged</small><b>{recsAffected.toLocaleString()}</b><span>{entries.length.toLocaleString()} class variances</span></div>
       <div><small>Zero in Q4</small><b className={critical ? 'ra-neg' : ''}>{critical.toLocaleString()}</b><span>critical records</span></div>
       <div><small>{view === 'previous' ? 'Children below previous class' : 'Children lost'}</small><b className="ra-neg">{lost(totalLost)}</b><span>across flagged records</span></div>
       <div><small>Most affected region</small><b>{worst && worst[1] > 0 ? SHORT[worst[0]] || regionName(worst[0]) : '—'}</b><span>{worst && worst[1] > 0 ? lost(worst[1]) + ' children' : 'no flags'}</span></div>
@@ -141,36 +151,43 @@ export default function RedFlagsView({ records }) {
       {shownRegions.map((rg) => {
         const list = byRegion[rg] || [];
         const items = list.slice(0, 10);
-        const regionLost = list.reduce((a, e) => a + e.drop, 0);
-        const crit = list.filter((e) => e.zero).length;
+        const regionLost = list.reduce((a, rec) => a + rec.totalDrop, 0);
+        const crit = list.filter((rec) => rec.zero).length;
         return <section key={rg} className="rf-panel">
           <header>
             <div><span className="rf-code">{SHORT[rg] || rg}</span><b>{regionName(rg)}</b></div>
-            <div className="rf-panel-stats"><span><b>{list.length}</b> flagged</span>{crit > 0 && <span className="ra-neg"><b>{crit}</b> zero Q4</span>}<span className="ra-neg"><b>{lost(regionLost)}</b> children</span></div>
+            <div className="rf-panel-stats"><span><b>{list.length}</b> RECs flagged</span>{crit > 0 && <span className="ra-neg"><b>{crit}</b> zero Q4</span>}<span className="ra-neg"><b>{lost(regionLost)}</b> children</span></div>
           </header>
           {items.length === 0 && <p className="rf-none">No red flags in this region at {threshold}%.</p>}
-          <ol>{items.map((e, i) => {
-            const reasonKey = [view, e.r.recCode, e.r.classCode || e.r.className].join('::');
+          <ol>{items.map((rec, i) => {
+            const reasonKey = [view, rec.recCode, 'REC'].join('::');
             const savedReason = reasons[reasonKey];
-            const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
-            return <li key={e.key} className={e.zero ? 'is-critical' : ''}>
+            return <li key={rec.recCode} className={rec.zero ? 'is-critical' : ''}>
               <span className="rf-rank">{i + 1}</span>
               <div className="rf-main">
-                <div className="rf-title"><b>{e.r.recName}</b><span className="ra-class">{e.r.className}</span>{e.zero && <span className="ra-badge is-zero">Zero Q4</span>}</div>
-                <small>{e.r.localBoard}</small>
-                <div className="rf-line">{e.line}</div>
-                <span className="rf-bar" title={`${fmt(e.cur)} of ${fmt(e.prev)} remain`}><span className="rf-bar-keep" style={{ width: kept + '%' }} /></span>
-                {e.chips.length > 0 && <div className="rf-chips">{e.chips.map((c, k) => <span key={k}>{c}</span>)}</div>}
+                <div className="rf-title"><b>{rec.recName}</b>{rec.zero && <span className="ra-badge is-zero">Zero Q4</span>}</div>
+                <small>{rec.localBoard}</small>
+                <div className="rf-variance-list">
+                  {rec.variances.map((e) => {
+                    const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
+                    return <div className="rf-class-variance" key={e.key}>
+                      <div className="rf-class-heading"><b>{e.r.className}</b><span className="rf-variance-line">{e.line}</span></div>
+                      <div className="rf-class-metrics"><strong>{lost(e.drop)}</strong><b>{lostPct(e.pct)}</b></div>
+                      <span className="rf-bar" title={fmt(e.cur) + ' of ' + fmt(e.prev) + ' remain'}><span className="rf-bar-keep" style={{ width: kept + '%' }} /></span>
+                      {e.chips.length > 0 && <div className="rf-chips">{e.chips.map((c, k) => <span key={k}>{c}</span>)}</div>}
+                    </div>;
+                  })}
+                </div>
               </div>
-              <div className="rf-gap"><b>{lost(e.drop)}</b><span>{lostPct(e.pct)}</span></div>
+              <div className="rf-rec-severity"><small>Worst decline</small><b>{lostPct(rec.worstPct)}</b><span>{lost(rec.totalDrop)} children across classes</span></div>
               <div className="rf-reason-area">
                 {savedReason ? <div className="rf-reason-saved">
-                  <div className="rf-reason-heading"><span>REC follow-up reason</span><button type="button" onClick={() => editReason(reasonKey)}>Edit</button></div>
+                  <div className="rf-reason-heading"><span>REC reason / context</span><button type="button" onClick={() => editReason(reasonKey)}>Edit</button></div>
                   <p>{savedReason.reason}</p>
                   <small>Added by <b>{savedReason.name}</b> · {savedReason.designation}</small>
-                </div> : <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>＋ Add reason and responsible person</button>}
+                </div> : <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>＋ Add reason for this REC</button>}
                 {editingReason === reasonKey && <div className="rf-reason-editor">
-                  <label>Reason / context<textarea rows="2" value={reasonDraft.reason} onChange={(event) => setReasonDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="Explain the likely reason for this enrolment gap and any context…" /></label>
+                  <label>Reason / context<textarea rows="2" value={reasonDraft.reason} onChange={(event) => setReasonDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="Explain the likely reason for the enrolment gaps across the classes…" /></label>
                   <div className="rf-reason-person">
                     <label>Name<input value={reasonDraft.name} onChange={(event) => setReasonDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="Name of person adding the reason" /></label>
                     <label>Designation<input value={reasonDraft.designation} onChange={(event) => setReasonDraft((draft) => ({ ...draft, designation: event.target.value }))} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
@@ -180,10 +197,9 @@ export default function RedFlagsView({ records }) {
               </div>
             </li>;
           })}</ol>
-
         </section>;
       })}
     </div>
-    <p className="ra-foot">Green in each bar is the share of children still enrolled; the grey remainder is the gap. Reasons are saved in this browser and displayed with the name and designation entered by the contributor.</p>
+    <p className="ra-foot">RECs are ranked by their highest percentage decline (most severe first). All flagged class variances for a REC are grouped together; add one shared reason and contributor details beneath the REC. Reasons are saved in this browser.</p>
   </div>;
 }
