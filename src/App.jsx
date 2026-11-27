@@ -677,16 +677,66 @@ function AccessEnrollmentPanel({ data }) {
         <button type="button" className={section==='follow-up'?'active':''} onClick={()=>setSection('follow-up')}>Investigation & Follow-up</button>
       </nav>
       {section==='overview' && <>
-      {historicalAnalysis.recRows.length > 0 && <section className="access-history-overview">
-        <div className="access-detail-heading"><div><span className="eyebrow">REC / CLASS HISTORICAL TRENDS</span><h2>Quarterly enrolment and previous-class comparison</h2><p>Aggregated from REC-level records. Previous-class comparisons match the same REC and quarter against the preceding class in the previous academic year.</p></div><span>{historicalAnalysis.years.length} academic years</span></div>
-        <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Class</th><th>Academic year</th><th>RECs</th><th>Q1</th><th>Q2</th><th>Q2 vs Q1</th><th>Q3</th><th>Q3 vs Q2</th><th>Q4</th><th>Q4 vs Q3</th><th>Q1 vs previous class</th><th>Q2 vs previous class</th><th>Q3 vs previous class</th><th>Q4 vs previous class</th></tr></thead><tbody>{historicalAnalysis.classSummaries.filter((row) => row.region === (summaryRegion || 'All Regions')).sort((a,b)=>classNames.indexOf(a.className)-classNames.indexOf(b.className)||a.year.localeCompare(b.year)||a.region.localeCompare(b.region)).map((row) => <tr key={row.key}><td>{row.className}</td><td>{row.year}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2 != null && row.q1 != null ? row.q2-row.q1 : null)}>{fmtVariancePct(row.q2 != null && row.q1 != null ? row.q2-row.q1 : null, row.q1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3 != null && row.q2 != null ? row.q3-row.q2 : null)}>{fmtVariancePct(row.q3 != null && row.q2 != null ? row.q3-row.q2 : null, row.q2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4 != null && row.q3 != null ? row.q4-row.q3 : null)}>{fmtVariancePct(row.q4 != null && row.q3 != null ? row.q4-row.q3 : null, row.q3)}</td>{["q1","q2","q3","q4"].map((q)=><td key={q} className={diffClass(row[q+"PreviousClass"])}>{fmtVariancePct(row[q+"PreviousClass"], row[q+"PreviousClassBase"])}</td>)}</tr>)}</tbody></table></div>
-        <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in this workbook; Ibtida has no preceding ECED class. All-region totals are calculated from REC-level records.</p>
+      <section className="access-overview-dashboard">
+        <div className="access-detail-heading"><div><span className="eyebrow">2025–26 ENROLMENT OVERVIEW</span><h2>Class-wise regional comparison</h2><p>Each class is shown separately. Select a region to focus the comparison, or keep All Regions to see the consolidated picture alongside every region.</p></div><span>8 regions · 4 classes</span></div>
+        <div className="classroom-filter-panel access-filters">
+          <div className="classroom-location-selects">
+            <label className="form-field">Region view<select value={summaryRegion} onChange={(event)=>setSummaryRegion(event.target.value)}><option value="">All regions</option>{regions.map((value)=><option key={value}>{value}</option>)}</select></label>
+          </div>
+        </div>
+        {classNames.map((className)=>{
+          const classRows=summaryRows.filter((row)=>row.group===className);
+          const displayRegions=summaryRegion?[summaryRegion]:['All Regions',...regions];
+          const getValue=(regionName,field)=>{
+            if(regionName!=='All Regions') return classRows.find((row)=>row.region===regionName)?.[field] ?? null;
+            const values=classRows.map((row)=>row[field]).filter((value)=>value!==null&&value!==undefined&&value!=='');
+            return values.length?values.reduce((total,value)=>total+Number(value),0):null;
+          };
+          const getTarget=(regionName)=>{
+            if(className!=='Ibtida') return null;
+            const targetField='ibtida';
+            if(regionName!=='All Regions') return (data?.regions||[]).find((item)=>item.region===regionName)?.[targetField] ?? null;
+            const values=(data?.regions||[]).map((item)=>item[targetField]).filter((value)=>value!==null&&value!==undefined&&value!=='');
+            return values.length?values.reduce((total,value)=>total+Number(value),0):null;
+          };
+          const metrics=[
+            ['RECs','recs',true],
+            ['2025 baseline','enrollment2025'],
+            ['Q1 enrolment','q1'],
+            ['Q1 vs 2025','q1Vs2025','diff','enrollment2025'],
+            ['Q2 enrolment','q2'],
+            ['Q2 vs Q1','q2VsQ1','diff','q1'],
+            ['Q3 enrolment','q3'],
+            ['Q3 vs Q2','q3VsQ2','diff','q2'],
+            ['Q4 enrolment','q4'],
+            ['Q4 vs Q3','q4VsQ3','diff','q3'],
+            ['Q4 vs 2025','q4Vs2025','diff','enrollment2025'],
+            ['2025–26 target',null,'target'],
+            ['Q4 vs target',null,'targetDiff'],
+            ['Adequate access % (Q1)',null,'adequatePct']
+          ];
+          return <section className="access-class-overview" key={className}>
+            <div className="access-class-overview-heading"><h3>{className}</h3><span>{className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'}</span></div>
+            <div className="access-table-wrap"><table className="data-table access-class-matrix">
+              <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName}</th>)}</tr></thead>
+              <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
+                const value=kind==='target'?getTarget(regionName):kind==='targetDiff'?(getValue(regionName,'q4')!==null&&getTarget(regionName)!==null?getValue(regionName,'q4')-getTarget(regionName):null):kind==='adequatePct'?(getValue(regionName,'q1')>0&&getValue(regionName,'adequateQ1')!==null?getValue(regionName,'adequateQ1')/getValue(regionName,'q1')*100:null):getValue(regionName,field);
+                const baseline=baselineField?getValue(regionName,baselineField):null;
+                const display=kind==='adequatePct'?(value===null?'—':value.toFixed(1)+'%'):kind==='diff'?fmtVariancePct(value,baseline):kind==='targetDiff'?fmtDiff(value):displayCount(value);
+                return <td key={regionName} className={(kind==='diff'||kind==='targetDiff')?diffClass(value):''}>{display}</td>;
+              })}</tr>)}</tbody>
+            </table></div>
+          </section>;
+        })}
+        <section className="access-targets access-group-targets"><div><span className="eyebrow">COMBINED CLASS TARGETS</span><h2>Programme group targets</h2><p>These targets are shown separately because the workbook defines them for combined class groups, not for each individual class.</p></div>
+          <div className="access-table-wrap"><table className="data-table access-target-table"><thead><tr><th>Region</th><th>Class group</th><th>2025–26 target</th><th>Q4 enrolment</th><th>Variance</th></tr></thead><tbody>{regionalTargetRows.filter((row)=>['Ibtida–KG I','Nursery–KG I'].includes(row.group)).map((row)=><tr key={row.region+'-'+row.group}><td>{row.region}</td><td>{row.group}</td><td>{displayCount(row.target)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.targetDifference)}>{fmtDiff(row.targetDifference)}</td></tr>)}</tbody></table></div>
+        </section>
+      </section>
+      {historicalAnalysis.recRows.length>0&&<section className="access-history-overview">
+        <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL TRENDS</span><h2>Quarterly enrolment and previous-class comparison</h2><p>Historical academic years are available in REC & Class Analysis. These totals are aggregated from REC-level records.</p></div><span>{historicalAnalysis.years.length} academic years</span></div>
+        <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Class</th><th>Academic year</th><th>RECs</th><th>Q1</th><th>Q2</th><th>Q2 vs Q1</th><th>Q3</th><th>Q3 vs Q2</th><th>Q4</th><th>Q4 vs Q3</th><th>Q1 vs previous class</th><th>Q2 vs previous class</th><th>Q3 vs previous class</th><th>Q4 vs previous class</th></tr></thead><tbody>{historicalAnalysis.classSummaries.filter((row)=>row.region===(summaryRegion||'All Regions')).sort((a,b)=>classNames.indexOf(a.className)-classNames.indexOf(b.className)||a.year.localeCompare(b.year)).map((row)=><tr key={row.key}><td>{row.className}</td><td>{row.year}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2!=null&&row.q1!=null?row.q2-row.q1:null)}>{fmtVariancePct(row.q2!=null&&row.q1!=null?row.q2-row.q1:null,row.q1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3!=null&&row.q2!=null?row.q3-row.q2:null)}>{fmtVariancePct(row.q3!=null&&row.q2!=null?row.q3-row.q2:null,row.q2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4!=null&&row.q3!=null?row.q4-row.q3:null)}>{fmtVariancePct(row.q4!=null&&row.q3!=null?row.q4-row.q3:null,row.q3)}</td>{['q1','q2','q3','q4'].map((q)=><td key={q} className={diffClass(row[q+'PreviousClass'])}>{fmtVariancePct(row[q+'PreviousClass'],row[q+'PreviousClassBase'])}</td>)}</tr>)}</tbody></table></div>
+        <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in this workbook; Ibtida has no preceding ECED class.</p>
       </section>}
-      <div className="access-targets"><div><span className="eyebrow">2025–26 ENROLMENT TARGETS</span><h2>Regional targets</h2><p>Targets appear where the workbook provides them. A dash means no separate target is listed.</p></div><div className="access-table-wrap"><table className="data-table access-target-table"><thead><tr><th>Region</th><th>Class / group</th><th>2025–26 target</th><th>2025–26 Q4 enrolment</th><th>Enrolment vs target</th></tr></thead><tbody>{regionalTargetRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.target === null || row.target === undefined ? '—' : displayCount(row.target)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.targetDifference)}>{fmtDiff(row.targetDifference)}</td></tr>)}</tbody></table></div></div>
-      <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>Separate class enrolment</h2></div></div>
-      <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={summaryRegion} onChange={(event) => setSummaryRegion(event.target.value)}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><fieldset className="access-class-filter"><legend>Classes</legend>{classNames.map((name) => <label key={name}><input type="checkbox" checked={summaryClasses.includes(name)} onChange={() => setSummaryClasses((current) => current.includes(name) ? current.filter((value) => value !== name) : [...current, name])} /><span>{name}</span></label>)}</fieldset></div></div>
-      <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class / group</th><th>RECs</th><th>2025 baseline</th><th>2025–26 Q1</th><th>Q1 vs 2025</th><th>2025–26 Q2</th><th>Q2 vs Q1</th><th>2025–26 Q3</th><th>Q3 vs Q2</th><th>2025–26 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th><th>Adequate access % Q1</th></tr></thead><tbody>{separateSummaryRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td className={diffClass(row.q1Vs2025)}>{fmtDiff(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2VsQ1)}>{fmtDiff(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3VsQ2)}>{fmtDiff(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4VsQ3)}>{fmtDiff(row.q4VsQ3)}</td><td className={diffClass(row.q4Vs2025)}>{fmtDiff(row.q4Vs2025)}</td>{['q1','q2','q3','q4'].map((q)=><React.Fragment key={q}><td>{displayCount(row[q+'Adequate'])}</td><td>{displayCount(row[q+'Moderate'])}</td><td>{displayCount(row[q+'Low'])}</td><td>{displayCount(row[q+'NonAccess'])}</td></React.Fragment>)}<td>{row.q1 && row.adequateQ1 !== null && row.adequateQ1 !== undefined ? (Number(row.adequateQ1) / Number(row.q1) * 100).toFixed(1) + '%' : '—'}</td></tr>)}</tbody></table></div>
-
       </>}
       {section==='red-flags' && <>
       <section className="access-variance-section">
