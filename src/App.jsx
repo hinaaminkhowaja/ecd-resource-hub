@@ -638,7 +638,6 @@ function AccessEnrollmentPanel({ data }) {
   return <section className="panel-section access-enrollment-panel">
     <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
-      {data.unmatchedRECCount > 0 && <div className="access-directory-note"><b>{data.unmatchedRECCount} RECs in this workbook are not in the existing REC directory.</b><span>Their enrollment remains visible here. They cannot appear in Classroom Data selectors until the REC source list includes: {(data.unmatchedRECNames || []).join(', ')}.</span></div>}
       <nav className="enrolment-section-tabs" aria-label="Enrolment management sections">
         <button type="button" className={section==='overview'?'active':''} onClick={()=>setSection('overview')}>Enrolment Overview</button>
         <button type="button" className={section==='rec-class'?'active':''} onClick={()=>setSection('rec-class')}>REC & Class Analysis</button>
@@ -736,16 +735,8 @@ function AccessEnrollmentPanel({ data }) {
         <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in this workbook; Ibtida has no preceding ECED class.</p>
       </section>}
       </>}
-      {section==='red-flags' && <RedFlagsView records={records} issueNotes={issueNotes} updateIssue={updateIssue} />}
-      {section==='follow-up' && <>
-      <section className="access-followup">
-        <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record a reason and assign a person to follow up. <span className="access-sync-status">{issueSyncStatus === 'shared' ? 'Saved for users of this app.' : issueSyncStatus === 'saving' || issueSyncStatus === 'loading' ? 'Saving…' : 'Saved on this device only; shared storage is unavailable.'}</span></p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
-        <div className="classroom-location-selects access-followup-filters"><label className="form-field">Region<select value={followupRegion} onChange={(event) => { setFollowupRegion(event.target.value); setIssueVisibleLimit(60); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Class / group<select value={followupGroup} onChange={(event) => { setFollowupGroup(event.target.value); setIssueVisibleLimit(60); }}><option value="">All classes and groups</option>{classesForFollowup.map((value) => <option key={value}>{value}</option>)}</select></label></div>
-        {issueItems.length ? <div className="access-issue-list">{issueItems.slice(0, issueVisibleLimit).map((item) => <article className="access-issue-card" key={item.key}><div className="access-issue-heading"><span><b>{item.region}</b><small>{item.group}</small></span><strong className="access-difference-pill">{item.label}: {fmtDiff(item.value)}</strong></div><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes[item.key]?.reason || ''} onChange={(event) => updateIssue(item.key, 'reason', event.target.value)} placeholder="Describe the reason for this change" /></label><label className="form-field">Assigned user<input value={issueNotes[item.key]?.assignedUser || ''} onChange={(event) => updateIssue(item.key, 'assignedUser', event.target.value)} placeholder="Enter the responsible person’s name" /></label></article>)}</div> : <div className="empty-state"><b>No non-zero differences for these filters</b></div>}
-        {issueItems.length > issueVisibleLimit && <><span className="access-followup-limit">Showing {issueVisibleLimit} of {issueItems.length.toLocaleString()} differences.</span><button type="button" className="show-more-access" onClick={() => setIssueVisibleLimit((limit) => limit + 60)}>Show 60 more differences</button></>}
-      </section>
-      </>}
-      {section==='rec-class' && <>
+      {section==='red-flags' && <RedFlagsView records={records} />}
+       {section==='rec-class' && <>
         <section className="access-history-section">
           <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL ACCESS & ENROLMENT</span><h2>Historical enrolment · 2022–23 to 2025–26</h2><p>Import the historical workbook once in this browser. Its REC, class, year, quarter, and access records are saved locally for later visits.</p></div><span>{historyRecords.length.toLocaleString()} quarter records</span></div>
           <div className="access-history-import"><label className="form-field">Import historical workbook (.xlsx)<input type="file" accept=".xlsx,.xls" onChange={(event)=>importHistoricalWorkbook(event.target.files?.[0])}/></label><span>{historyStatus}</span></div>
