@@ -76,3 +76,32 @@
 .rf-fixed-top{display:grid;align-content:center;gap:3px;padding:8px 12px;border:1px solid #cbded0;border-radius:9px;background:#f1f7f2;color:#244b3b}
 .rf-fixed-top b{font-size:12px;font-weight:800}
 .rf-fixed-top span{font-size:10px;color:#64766a}
+
+
+/* Grouped REC cards: class variances first, one shared reason section below. */
+.rf-panel li{grid-template-columns:28px minmax(0,1fr) minmax(125px,auto);gap:12px;padding:16px}
+.rf-main{gap:7px}
+.rf-variance-list{display:grid;gap:8px;margin-top:4px}
+.rf-class-variance{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;padding:10px 12px;border:1px solid #e1e9e3;border-radius:9px;background:#f8faf8}
+.rf-class-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;min-width:0}
+.rf-class-heading>b{color:#244b3b;font-size:12px}
+.rf-variance-line{color:#53645a;font-size:11px}
+.rf-class-metrics{display:grid;justify-items:end;align-content:center;gap:2px}
+.rf-class-metrics strong{color:#a52d28;font-size:13px}
+.rf-class-metrics>b{color:#a52d28;font-size:13px;font-weight:800}
+.rf-class-variance .rf-bar,.rf-class-variance .rf-chips{grid-column:1/-1}
+.rf-rec-severity{display:grid;gap:3px;align-content:start;justify-items:end;text-align:right;padding:7px 0}
+.rf-rec-severity small{font-size:10px;color:#748178;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.rf-rec-severity>b{font-size:20px;color:#a52d28;font-weight:800}
+.rf-rec-severity>span{font-size:10px;color:#748178}
+.rf-reason-area{grid-column:2/-1;margin-top:3px;padding-top:12px;border-top:1px dashed #d5dfd8}
+.rf-reason-saved{background:#f0f7f1;border-left:4px solid #2e7046}
+.rf-add-reason{font-size:12px;padding:9px 13px}
+.rf-fixed-top{grid-column:1/-1}
+@media(max-width:560px){
+  .rf-panel li{grid-template-columns:24px minmax(0,1fr);gap:9px;padding:12px}
+  .rf-rec-severity{grid-column:2;grid-row:auto;justify-items:start;text-align:left;display:flex;align-items:baseline;gap:8px;padding:0}
+  .rf-rec-severity>b{font-size:16px}
+  .rf-reason-area{grid-column:1/-1}
+  .rf-class-variance{grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;padding:9px}
+}
