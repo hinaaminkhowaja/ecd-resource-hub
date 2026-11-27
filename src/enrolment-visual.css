@@ -51,3 +51,10 @@
 .ev-div-val{width:150px;display:grid;line-height:1.25}
 .ev-div-val small{color:#7a887f;font-size:11px}
 @media(max-width:560px){.ev-tbar-val{width:92px}.ev-div-val{width:118px}}
+.ev-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ev-chips button{border:1px solid #c9d6cd;background:#fff;color:#315b49;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer}
+.ev-chips button:hover{background:#f1f6f2}
+.ev-chips button.active{background:#244b3b;border-color:#244b3b;color:#fff}
+.ev-chips button i{font-style:normal;font-weight:400;opacity:.75;margin-left:4px}
+.ev-filter-row{display:grid;gap:6px}
+.ev-filter-row>small{color:#5d6f64;font-size:12px;font-weight:700}
