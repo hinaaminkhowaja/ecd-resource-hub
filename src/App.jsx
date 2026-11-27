@@ -693,27 +693,26 @@ function AccessEnrollmentPanel({ data }) {
             const values=classRows.map((row)=>row[field]).filter((value)=>value!==null&&value!==undefined&&value!=='');
             return values.length?values.reduce((total,value)=>total+Number(value),0):null;
           };
-          const targetAliases={
-            'Ibtida':['ibtida'],
-            'Nursery':['nursery','nurseryTarget','targetNursery'],
-            'KG I':['kg1','kgI','kg1Target','kgITarget'],
-            'KG II':['kg2','kgII','kg2Target','kgIITarget'],
-            'Ibtida–KG II':['ecdIbtidaKg2','ibtidaKg2','ibtidaKgII','ecdIbtidaKgII'],
-            'Ibtida–KG I':['ecdIbtidaKg1','ibtidaKg1','ibtidaKgI'],
-            'Nursery–KG I':['nurseryKg1','nurseryKgI']
+          // 2025–26 targets supplied in the confirmed column order:
+          // Total, Southern, Central, Upper Chitral, Lower Chitral,
+          // Gupis-Yasin, Ishkoman-Puniyal, Hunza, Gilgit.
+          const suppliedClassTargets={
+            'Nursery':{total:9343,regions:{'Southern_01':1059,'Central_02':362,'Upper Chitral_03':1744,'Lower Chitral_04':1123,'Gupis-Yasin_05':2087,'Ishkoman-Puniyal_06':1446,'Hunza_07':774,'Gilgit_08':750}},
+            'KG I':{total:9343,regions:{'Southern_01':1059,'Central_02':362,'Upper Chitral_03':1744,'Lower Chitral_04':1123,'Gupis-Yasin_05':2087,'Ishkoman-Puniyal_06':1446,'Hunza_07':774,'Gilgit_08':750}},
+            'KG II':{total:8263,regions:{'Southern_01':1040,'Central_02':396,'Upper Chitral_03':1442,'Lower Chitral_04':951,'Gupis-Yasin_05':1516,'Ishkoman-Puniyal_06':1282,'Hunza_07':812,'Gilgit_08':825}}
+          };
+          const getSingleClassTarget=(targetClass,regionName)=>{
+            const supplied=suppliedClassTargets[targetClass];
+            if(supplied) return regionName==='All Regions'?supplied.total:(supplied.regions[regionName]??null);
+            const targetRow=(data?.regions||[]).find((item)=>item.region===regionName);
+            return targetRow&&targetClass==='Ibtida'&&targetRow.ibtida!==null&&targetRow.ibtida!==undefined&&targetRow.ibtida!==''?Number(targetRow.ibtida):null;
           };
           const getRegionalTarget=(regionName)=>{
-            const targetRow=(data?.regions||[]).find((item)=>item.region===regionName);
-            if(!targetRow) return null;
-            const aliases=targetAliases[className]||[];
-            const key=aliases.find((candidate)=>targetRow[candidate]!==null&&targetRow[candidate]!==undefined&&targetRow[candidate]!=='');
-            return key?Number(targetRow[key]):null;
+            const targetClasses=group.classes;
+            const values=targetClasses.map((targetClass)=>getSingleClassTarget(targetClass,regionName));
+            return values.every((value)=>value!==null)?values.reduce((total,value)=>total+value,0):null;
           };
-          const getTarget=(regionName)=>{
-            if(regionName!=='All Regions') return getRegionalTarget(regionName);
-            const values=regions.map((name)=>getRegionalTarget(name)).filter((value)=>value!==null);
-            return values.length?values.reduce((total,value)=>total+value,0):null;
-          };
+          const getTarget=(regionName)=>getRegionalTarget(regionName);
           const metrics=[
             ['RECs','recs',true],
             ['2025–26 Target',null,'target'],
