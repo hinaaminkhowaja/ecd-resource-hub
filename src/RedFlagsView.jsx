@@ -65,6 +65,7 @@ export function buildQuarter(records, threshold) {
 export default function RedFlagsView({ records }) {
   const [view, setView] = useState('previous');
   const [region, setRegion] = useState('');
+  const [localBoard, setLocalBoard] = useState('');
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
   const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
@@ -85,7 +86,8 @@ export default function RedFlagsView({ records }) {
     window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
   }
 
-  const scoped = useMemo(() => records.filter((r) => (!region || r.region === region) && classMatches(group, r.className)), [records, region, group]);
+  const localBoardsForFilter = useMemo(() => [...new Set(records.filter((r) => !region || r.region === region).map((r) => r.localBoard || 'Unassigned'))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), [records, region]);
+  const scoped = useMemo(() => records.filter((r) => (!region || r.region === region) && (!localBoard || (r.localBoard || 'Unassigned') === localBoard) && classMatches(group, r.className)), [records, region, localBoard, group]);
   const prevEntries = useMemo(() => buildPrevious(scoped, threshold), [scoped, threshold]);
   const quarterEntries = useMemo(() => buildQuarter(scoped, threshold), [scoped, threshold]);
   const entries = view === 'previous' ? prevEntries : quarterEntries;
@@ -131,7 +133,8 @@ export default function RedFlagsView({ records }) {
       : 'Children lost between quarters. Each REC is shown with its biggest drop, either from one quarter to the next or from its quarterly peak down to a later quarter.'} Flagged when the decline is {threshold}% or more, or when Q4 is zero. Differences of fewer than 7 children are excluded.</p>
 
     <div className="rf-filters">
-      <label>Region<select value={region} onChange={(e) => setRegion(e.target.value)}><option value="">All regions</option>{regions.map((v) => <option key={v} value={v}>{SHORT[v] ? SHORT[v] + ' · ' : ''}{regionName(v)}</option>)}</select></label>
+      <label>Region<select value={region} onChange={(e) => { setRegion(e.target.value); setLocalBoard(''); }}><option value="">All regions</option>{regions.map((v) => <option key={v} value={v}>{SHORT[v] ? SHORT[v] + ' · ' : ''}{regionName(v)}</option>)}</select></label>
+      <label>Local Board<select value={localBoard} onChange={(e) => setLocalBoard(e.target.value)}><option value="">All local boards</option>{localBoardsForFilter.map((v) => <option key={v} value={v}>{v === 'Unassigned' ? 'Local Board not specified' : v}</option>)}</select></label>
       <label>Class / group<select value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All classes and groups</option>{CLASS_GROUPS.map((g) => <option key={g.label}>{g.label}</option>)}</select></label>
       <label>Flag at<select value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}>{[10, 20, 30, 50].map((v) => <option key={v} value={v}>{v}% decline</option>)}</select></label>
       <div className="rf-fixed-top"><b>Top 10 RECs per region</b><span>Only gaps of 7 or more children are included.</span></div>
