@@ -660,7 +660,7 @@ function AccessEnrollmentPanel({ data }) {
   const classesForFollowup = classGroups.map((group) => group.label);
   const fmtDiff = (value) => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toLocaleString();
   const fmtVariancePct = (value, baseline) => value === null || value === undefined ? '—' : fmtDiff(value) + (baseline > 0 ? ' (' + (Number(value) / Number(baseline) * 100).toFixed(1) + '%)' : '');
-  const diffClass = (value) => value !== null && value !== undefined && Number(value) < 0 ? 'access-difference-cell' : '';
+  const diffClass = (value) => value === null || value === undefined || Number(value) === 0 ? '' : Number(value) < 0 ? 'access-difference-cell' : 'access-increase-cell';
   const updateIssue = (key, field, value) => {
     const updated = { ...(issueNotes[key] || {}), [field]: value, updatedAt: new Date().toISOString() };
     issueUpdateQueue.current.set(key, updated);
@@ -740,8 +740,8 @@ function AccessEnrollmentPanel({ data }) {
           return <section className="access-class-overview" key={className}>
             <div className="access-class-overview-heading"><h3>{className}</h3><span>{group.classes.length===1?(className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'):'Combined class group'}</span></div>
             <div className="access-table-wrap"><table className="data-table access-class-matrix">
-              <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName}</th>)}</tr></thead>
-              <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
+              <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName==='All Regions'?'All':({'Southern_01':'Southern','Central_02':'Central','Upper Chitral_03':'U. Chitral','Lower Chitral_04':'L. Chitral','Gupis-Yasin_05':'Gupis-Yasin','Ishkoman-Puniyal_06':'Ish.-Pun.','Hunza_07':'Hunza','Gilgit_08':'Gilgit'}[regionName]||regionName)}</th>)}</tr></thead>
+              <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label} className={['q1','q2','q3','q4'].includes(field)?`access-quarter-row access-quarter-${field}`:''}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
                 const target=getTarget(regionName);
                 const quarterValue=baselineField&&['q1','q2','q3','q4'].includes(baselineField)?getValue(regionName,baselineField):null;
                 const value=kind==='target'?target:kind==='targetVariance'?(quarterValue!==null&&target!==null?quarterValue-target:null):kind==='quarterVariance'?(getValue(regionName,'q4')!==null&&quarterValue!==null?getValue(regionName,'q4')-quarterValue:null):getValue(regionName,field);
