@@ -556,12 +556,12 @@ function AccessEnrollmentPanel({ data }) {
   },[historicalAnalysis,historyYear,historyRegion,historyClass,historySearch]);
   async function importHistoricalWorkbook(file) {
     if(!file)return;
-    setHistoryStatus('Reading '+file.name+'…');
+    setHistoryStatus('Reading historical enrolment data…');
     try {
       const parsed=await parseHistoricalEnrollmentWorkbook(file);
       await saveEnrollmentDataset('historical',parsed);
       setHistoryRecords(parsed);
-      setHistoryStatus(parsed.length.toLocaleString()+' historical quarter records imported from '+file.name+'. Saved in this browser.');
+      setHistoryStatus(parsed.length.toLocaleString()+' historical quarter records imported successfully. Saved in this browser.');
       setHistoryLimit(100);
     } catch(error) { setHistoryStatus(error.message||'Could not read this workbook. Please check its format.'); }
   }
@@ -636,7 +636,7 @@ function AccessEnrollmentPanel({ data }) {
   const fmtVariancePct = (value, baseline) => value === null || value === undefined ? '—' : fmtDiff(value) + (baseline > 0 ? ' (' + (Number(value) / Number(baseline) * 100).toFixed(1) + '%)' : '');
   const diffClass = (value) => value === null || value === undefined || Number(value) === 0 ? '' : Number(value) < 0 ? 'access-difference-cell' : 'access-increase-cell';
   return <section className="panel-section access-enrollment-panel">
-    <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
+    <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
       <nav className="enrolment-section-tabs" aria-label="Enrolment management sections">
         <button type="button" className={section==='overview'?'active':''} onClick={()=>setSection('overview')}>Enrolment Overview</button>
@@ -731,7 +731,7 @@ function AccessEnrollmentPanel({ data }) {
       {historicalAnalysis.recRows.length>0&&<section className="access-history-overview">
         <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL TRENDS</span><h2>Quarterly enrolment and previous-class comparison</h2><p>Historical academic years are available in REC & Class Analysis. These totals are aggregated from REC-level records.</p></div><span>{historicalAnalysis.years.length} academic years</span></div>
         <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Class</th><th>Academic year</th><th>RECs</th><th>Q1</th><th>Q2</th><th>Q2 vs Q1</th><th>Q3</th><th>Q3 vs Q2</th><th>Q4</th><th>Q4 vs Q3</th><th>Q1 vs previous class</th><th>Q2 vs previous class</th><th>Q3 vs previous class</th><th>Q4 vs previous class</th></tr></thead><tbody>{historicalAnalysis.classSummaries.filter((row)=>row.region===(summaryRegion||'All Regions')).sort((a,b)=>classNames.indexOf(a.className)-classNames.indexOf(b.className)||a.year.localeCompare(b.year)).map((row)=><tr key={row.key}><td>{row.className}</td><td>{row.year}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2!=null&&row.q1!=null?row.q2-row.q1:null)}>{fmtVariancePct(row.q2!=null&&row.q1!=null?row.q2-row.q1:null,row.q1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3!=null&&row.q2!=null?row.q3-row.q2:null)}>{fmtVariancePct(row.q3!=null&&row.q2!=null?row.q3-row.q2:null,row.q2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4!=null&&row.q3!=null?row.q4-row.q3:null)}>{fmtVariancePct(row.q4!=null&&row.q3!=null?row.q4-row.q3:null,row.q3)}</td>{['q1','q2','q3','q4'].map((q)=><td key={q} className={diffClass(row[q+'PreviousClass'])}>{fmtVariancePct(row[q+'PreviousClass'],row[q+'PreviousClassBase'])}</td>)}</tr>)}</tbody></table></div>
-        <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in this workbook; Ibtida has no preceding ECED class.</p>
+        <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in the available historical data; Ibtida has no preceding ECED class.</p>
       </section>}
       </>}
       {section==='red-flags' && <RedFlagsView records={records} />}
