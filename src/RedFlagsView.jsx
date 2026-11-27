@@ -114,7 +114,7 @@ export default function RedFlagsView({ records }) {
     return grouped;
   }, [entries]);
   const byRegion = groupedByRegion;
-  const shownRegions = region ? [region] : regions;
+  const shownRegions = (region ? [region] : regions).filter((rg) => (byRegion[rg] || []).length > 0);
   const totalLost = entries.reduce((a, e) => a + e.drop, 0);
   const critical = entries.filter((e) => e.zero).length;
   const recsAffected = Object.values(byRegion).reduce((sum, recs) => sum + recs.length, 0);
