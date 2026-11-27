@@ -80,7 +80,7 @@ export default function RedFlagsView({ records }) {
 
   function saveReason(key) {
     const draft = reasonDrafts[key] || {};
-    const next = { ...reasons, [key]: { ...draft, updatedAt: new Date().toISOString() } };
+    const next = { ...reasons, [key]: { ...(reasons[key] || {}), ...draft, updatedAt: new Date().toISOString() } };
     setReasons(next);
     window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
   }
