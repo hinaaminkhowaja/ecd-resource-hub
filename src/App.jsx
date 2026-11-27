@@ -724,14 +724,18 @@ function AccessEnrollmentPanel({ data }) {
             ...(className==='Ibtida'?[]:[['2025 baseline','enrollment2025']]),
             ['Q1 enrolment','q1'],
             ['Q1 vs target',null,'targetVariance','q1'],
+            ['Q1 achievement',null,'achievement','q1'],
             ['Q2 enrolment','q2'],
             ['Q2 vs target',null,'targetVariance','q2'],
+            ['Q2 achievement',null,'achievement','q2'],
             ['Q2 vs Q1','q2VsQ1','diff','q1'],
             ['Q3 enrolment','q3'],
             ['Q3 vs target',null,'targetVariance','q3'],
+            ['Q3 achievement',null,'achievement','q3'],
             ['Q3 vs Q2','q3VsQ2','diff','q2'],
             ['Q4 enrolment','q4'],
             ['Q4 vs target',null,'targetVariance','q4'],
+            ['Q4 achievement',null,'achievement','q4'],
             ['Q4 vs Q1',null,'quarterVariance','q1'],
             ['Q4 vs Q2',null,'quarterVariance','q2'],
             ['Q4 vs Q3','q4VsQ3','diff','q3'],
@@ -744,9 +748,9 @@ function AccessEnrollmentPanel({ data }) {
               <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label} className={['q1','q2','q3','q4'].includes(field)?`access-quarter-row access-quarter-${field}`:''}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
                 const target=getTarget(regionName);
                 const quarterValue=baselineField&&['q1','q2','q3','q4'].includes(baselineField)?getValue(regionName,baselineField):null;
-                const value=kind==='target'?target:kind==='targetVariance'?(quarterValue!==null&&target!==null?quarterValue-target:null):kind==='quarterVariance'?(getValue(regionName,'q4')!==null&&quarterValue!==null?getValue(regionName,'q4')-quarterValue:null):getValue(regionName,field);
+                const value=kind==='target'?target:kind==='targetVariance'?(quarterValue!==null&&target!==null?quarterValue-target:null):kind==='achievement'?(quarterValue!==null&&target>0?quarterValue/target*100:null):kind==='quarterVariance'?(getValue(regionName,'q4')!==null&&quarterValue!==null?getValue(regionName,'q4')-quarterValue:null):getValue(regionName,field);
                 const baseline=baselineField&&kind==='diff'?getValue(regionName,baselineField):null;
-                const display=kind==='diff'?fmtVariancePct(value,baseline):kind==='targetVariance'||kind==='quarterVariance'?fmtDiff(value):displayCount(value);
+                const display=kind==='diff'?fmtVariancePct(value,baseline):kind==='targetVariance'||kind==='quarterVariance'?fmtDiff(value):kind==='achievement'?(value===null?'—':value.toFixed(1)+'%'):displayCount(value);
                 return <td key={regionName} className={(kind==='diff'||kind==='targetVariance'||kind==='quarterVariance')?diffClass(value):''}>{display}</td>;
               })}</tr>)}</tbody>
             </table></div>
