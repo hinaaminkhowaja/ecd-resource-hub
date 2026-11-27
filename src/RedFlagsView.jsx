@@ -65,9 +65,25 @@ export default function RedFlagsView({ records }) {
   const [region, setRegion] = useState('');
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
-  const [topN, setTopN] = useState(5);
+  const [topN, setTopN] = useState(10);
+  const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
+  const [editingReason, setEditingReason] = useState('');
+  const [reasonDraft, setReasonDraft] = useState({ name: '', designation: '', reason: '' });
   const [rank, setRank] = useState('count');
   const [open, setOpen] = useState({});
+
+  function saveReason(key) {
+    const next = { ...reasons, [key]: { ...reasonDraft, updatedAt: new Date().toISOString() } };
+    setReasons(next);
+    window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
+    setEditingReason('');
+  }
+
+  function editReason(key) {
+    const existing = reasons[key] || {};
+    setReasonDraft({ name: existing.name || '', designation: existing.designation || '', reason: existing.reason || '' });
+    setEditingReason(key);
+  }
 
   const scoped = useMemo(() => records.filter((r) => (!region || r.region === region) && classMatches(group, r.className)), [records, region, group]);
   const prevEntries = useMemo(() => buildPrevious(scoped, threshold), [scoped, threshold]);
@@ -79,7 +95,7 @@ export default function RedFlagsView({ records }) {
     return [...REGION_ORDER.filter((x) => present.includes(x)), ...present.filter((x) => !REGION_ORDER.includes(x)).sort()];
   }, [records]);
 
-  const sorted = useMemo(() => [...entries].sort((a, b) => (rank === 'pct' ? a.pct - b.pct : 0) || (b.drop - a.drop)), [entries, rank]);
+  const sorted = useMemo(() => [...entries].sort((a, b) => Number(b.zero) - Number(a.zero) || (rank === 'pct' ? a.pct - b.pct : b.drop - a.drop) || a.pct - b.pct), [entries, rank]);
   const byRegion = useMemo(() => {
     const m = {};
     sorted.forEach((e) => { (m[e.r.region] = m[e.r.region] || []).push(e); });
@@ -107,7 +123,7 @@ export default function RedFlagsView({ records }) {
       <label>Class / group<select value={group} onChange={(e) => setGroup(e.target.value)}><option value="">All classes and groups</option>{CLASS_GROUPS.map((g) => <option key={g.label}>{g.label}</option>)}</select></label>
       <label>Flag at<select value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}>{[10, 20, 30, 50].map((v) => <option key={v} value={v}>{v}% decline</option>)}</select></label>
       <label>Rank by<select value={rank} onChange={(e) => setRank(e.target.value)}><option value="count">Children lost</option><option value="pct">Percentage decline</option></select></label>
-      <label>Top per region<select value={topN} onChange={(e) => setTopN(Number(e.target.value))}>{[3, 5, 10].map((v) => <option key={v} value={v}>{v} RECs</option>)}</select></label>
+      <label>Display per region<select value={topN} onChange={(e) => setTopN(Number(e.target.value))}>{[10, 20, 50].map((v) => <option key={v} value={v}>Top {v} RECs</option>)}</select></label>
     </div>
 
     <div className="rf-kpis">
@@ -133,6 +149,8 @@ export default function RedFlagsView({ records }) {
           </header>
           {items.length === 0 && <p className="rf-none">No red flags in this region at {threshold}%.</p>}
           <ol>{items.map((e, i) => {
+            const reasonKey = [view, e.r.recCode, e.r.classCode || e.r.className].join('::');
+            const savedReason = reasons[reasonKey];
             const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
             return <li key={e.key} className={e.zero ? 'is-critical' : ''}>
               <span className="rf-rank">{i + 1}</span>
@@ -144,12 +162,27 @@ export default function RedFlagsView({ records }) {
                 {e.chips.length > 0 && <div className="rf-chips">{e.chips.map((c, k) => <span key={k}>{c}</span>)}</div>}
               </div>
               <div className="rf-gap"><b>{lost(e.drop)}</b><span>{lostPct(e.pct)}</span></div>
+              <div className="rf-reason-area">
+                {savedReason ? <div className="rf-reason-saved">
+                  <div className="rf-reason-heading"><span>REC follow-up reason</span><button type="button" onClick={() => editReason(reasonKey)}>Edit</button></div>
+                  <p>{savedReason.reason}</p>
+                  <small>Added by <b>{savedReason.name}</b> · {savedReason.designation}</small>
+                </div> : <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>＋ Add reason and responsible person</button>}
+                {editingReason === reasonKey && <div className="rf-reason-editor">
+                  <label>Reason / context<textarea rows="2" value={reasonDraft.reason} onChange={(event) => setReasonDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="Explain the likely reason for this enrolment gap and any context…" /></label>
+                  <div className="rf-reason-person">
+                    <label>Name<input value={reasonDraft.name} onChange={(event) => setReasonDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="Name of person adding the reason" /></label>
+                    <label>Designation<input value={reasonDraft.designation} onChange={(event) => setReasonDraft((draft) => ({ ...draft, designation: event.target.value }))} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
+                  </div>
+                  <div className="rf-reason-actions"><button type="button" onClick={() => setEditingReason('')}>Cancel</button><button type="button" disabled={!reasonDraft.reason.trim() || !reasonDraft.name.trim() || !reasonDraft.designation.trim()} onClick={() => saveReason(reasonKey)}>Save reason</button></div>
+                </div>}
+              </div>
             </li>;
           })}</ol>
           {list.length > topN && <button type="button" className="rf-more" onClick={() => setOpen((o) => ({ ...o, [view + rg]: !expanded }))}>{expanded ? 'Show top ' + topN + ' only' : 'Show all ' + list.length}</button>}
         </section>;
       })}
     </div>
-    <p className="ra-foot">Green in each bar is the share of children still enrolled; the grey remainder is the gap. Reasons are saved per REC and class.</p>
+    <p className="ra-foot">Green in each bar is the share of children still enrolled; the grey remainder is the gap. Reasons are saved in this browser and displayed with the name and designation entered by the contributor.</p>
   </div>;
 }
