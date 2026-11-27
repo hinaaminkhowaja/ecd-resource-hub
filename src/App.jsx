@@ -667,7 +667,7 @@ function AccessEnrollmentPanel({ data }) {
     setIssueNotes((current) => ({ ...current, [key]: updated }));
   };
   return <section className="panel-section access-enrollment-panel">
-    <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, and adequate access. Differences from 2025 and between quarters are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
+    <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
       {data.unmatchedRECCount > 0 && <div className="access-directory-note"><b>{data.unmatchedRECCount} RECs in this workbook are not in the existing REC directory.</b><span>Their enrollment remains visible here. They cannot appear in Classroom Data selectors until the REC source list includes: {(data.unmatchedRECNames || []).join(', ')}.</span></div>}
       <nav className="enrolment-section-tabs" aria-label="Enrolment management sections">
@@ -678,13 +678,14 @@ function AccessEnrollmentPanel({ data }) {
       </nav>
       {section==='overview' && <>
       <section className="access-overview-dashboard">
-        <div className="access-detail-heading"><div><span className="eyebrow">2025–26 ENROLMENT OVERVIEW</span><h2>Class-wise regional comparison</h2><p>Each class is shown separately. Select a region to focus the comparison, or keep All Regions to see the consolidated picture alongside every region.</p></div><span>8 regions · 4 classes</span></div>
+        <div className="access-detail-heading"><div><span className="eyebrow">2025–26 ENROLMENT OVERVIEW</span><h2>Class-wise regional comparison</h2><p>Each class is shown separately. Select a region to focus the comparison, or keep All Regions to see the consolidated picture alongside every region.</p></div><span>8 regions · 4 classes · 3 combined groups</span></div>
         <div className="classroom-filter-panel access-filters">
           <div className="classroom-location-selects">
             <label className="form-field">Region view<select value={summaryRegion} onChange={(event)=>setSummaryRegion(event.target.value)}><option value="">All regions</option>{regions.map((value)=><option key={value}>{value}</option>)}</select></label>
           </div>
         </div>
-        {classNames.map((className)=>{
+        {classGroups.map((group)=>{
+          const className=group.label;
           const classRows=summaryRows.filter((row)=>row.group===className);
           const displayRegions=summaryRegion?[summaryRegion]:['All Regions',...regions];
           const getValue=(regionName,field)=>{
@@ -692,45 +693,61 @@ function AccessEnrollmentPanel({ data }) {
             const values=classRows.map((row)=>row[field]).filter((value)=>value!==null&&value!==undefined&&value!=='');
             return values.length?values.reduce((total,value)=>total+Number(value),0):null;
           };
+          const targetAliases={
+            'Ibtida':['ibtida'],
+            'Nursery':['nursery','nurseryTarget','targetNursery'],
+            'KG I':['kg1','kgI','kg1Target','kgITarget'],
+            'KG II':['kg2','kgII','kg2Target','kgIITarget'],
+            'Ibtida–KG II':['ecdIbtidaKg2','ibtidaKg2','ibtidaKgII','ecdIbtidaKgII'],
+            'Ibtida–KG I':['ecdIbtidaKg1','ibtidaKg1','ibtidaKgI'],
+            'Nursery–KG I':['nurseryKg1','nurseryKgI']
+          };
+          const getRegionalTarget=(regionName)=>{
+            const targetRow=(data?.regions||[]).find((item)=>item.region===regionName);
+            if(!targetRow) return null;
+            const aliases=targetAliases[className]||[];
+            const key=aliases.find((candidate)=>targetRow[candidate]!==null&&targetRow[candidate]!==undefined&&targetRow[candidate]!=='');
+            return key?Number(targetRow[key]):null;
+          };
           const getTarget=(regionName)=>{
-            if(className!=='Ibtida') return null;
-            const targetField='ibtida';
-            if(regionName!=='All Regions') return (data?.regions||[]).find((item)=>item.region===regionName)?.[targetField] ?? null;
-            const values=(data?.regions||[]).map((item)=>item[targetField]).filter((value)=>value!==null&&value!==undefined&&value!=='');
-            return values.length?values.reduce((total,value)=>total+Number(value),0):null;
+            if(regionName!=='All Regions') return getRegionalTarget(regionName);
+            const values=regions.map((name)=>getRegionalTarget(name)).filter((value)=>value!==null);
+            return values.length?values.reduce((total,value)=>total+value,0):null;
           };
           const metrics=[
             ['RECs','recs',true],
-            ['2025 baseline','enrollment2025'],
+            ['2025–26 Target',null,'target'],
+            ...(className==='Ibtida'?[]:[['2025 baseline','enrollment2025']]),
             ['Q1 enrolment','q1'],
-            ['Q1 vs 2025','q1Vs2025','diff','enrollment2025'],
+            ['Q1 vs target',null,'targetVariance','q1'],
             ['Q2 enrolment','q2'],
+            ['Q2 vs target',null,'targetVariance','q2'],
             ['Q2 vs Q1','q2VsQ1','diff','q1'],
             ['Q3 enrolment','q3'],
+            ['Q3 vs target',null,'targetVariance','q3'],
             ['Q3 vs Q2','q3VsQ2','diff','q2'],
             ['Q4 enrolment','q4'],
+            ['Q4 vs target',null,'targetVariance','q4'],
+            ['Q4 vs Q1',null,'quarterVariance','q1'],
+            ['Q4 vs Q2',null,'quarterVariance','q2'],
             ['Q4 vs Q3','q4VsQ3','diff','q3'],
-            ['Q4 vs 2025','q4Vs2025','diff','enrollment2025'],
-            ['2025–26 target',null,'target'],
-            ['Q4 vs target',null,'targetDiff'],
-            ['Adequate access % (Q1)',null,'adequatePct']
+            ...(className==='Ibtida'?[]:[['Q4 vs 2025 baseline','q4Vs2025','diff','enrollment2025']])
           ];
           return <section className="access-class-overview" key={className}>
-            <div className="access-class-overview-heading"><h3>{className}</h3><span>{className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'}</span></div>
+            <div className="access-class-overview-heading"><h3>{className}</h3><span>{group.classes.length===1?(className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'):'Combined class group'}</span></div>
             <div className="access-table-wrap"><table className="data-table access-class-matrix">
               <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName}</th>)}</tr></thead>
               <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
-                const value=kind==='target'?getTarget(regionName):kind==='targetDiff'?(getValue(regionName,'q4')!==null&&getTarget(regionName)!==null?getValue(regionName,'q4')-getTarget(regionName):null):kind==='adequatePct'?(getValue(regionName,'q1')>0&&getValue(regionName,'adequateQ1')!==null?getValue(regionName,'adequateQ1')/getValue(regionName,'q1')*100:null):getValue(regionName,field);
-                const baseline=baselineField?getValue(regionName,baselineField):null;
-                const display=kind==='adequatePct'?(value===null?'—':value.toFixed(1)+'%'):kind==='diff'?fmtVariancePct(value,baseline):kind==='targetDiff'?fmtDiff(value):displayCount(value);
-                return <td key={regionName} className={(kind==='diff'||kind==='targetDiff')?diffClass(value):''}>{display}</td>;
+                const target=getTarget(regionName);
+                const quarterValue=baselineField&&['q1','q2','q3','q4'].includes(baselineField)?getValue(regionName,baselineField):null;
+                const value=kind==='target'?target:kind==='targetVariance'?(quarterValue!==null&&target!==null?quarterValue-target:null):kind==='quarterVariance'?(getValue(regionName,'q4')!==null&&quarterValue!==null?getValue(regionName,'q4')-quarterValue:null):getValue(regionName,field);
+                const baseline=baselineField&&kind==='diff'?getValue(regionName,baselineField):null;
+                const display=kind==='diff'?fmtVariancePct(value,baseline):kind==='targetVariance'||kind==='quarterVariance'?fmtDiff(value):displayCount(value);
+                return <td key={regionName} className={(kind==='diff'||kind==='targetVariance'||kind==='quarterVariance')?diffClass(value):''}>{display}</td>;
               })}</tr>)}</tbody>
             </table></div>
           </section>;
         })}
-        <section className="access-targets access-group-targets"><div><span className="eyebrow">COMBINED CLASS TARGETS</span><h2>Programme group targets</h2><p>These targets are shown separately because the workbook defines them for combined class groups, not for each individual class.</p></div>
-          <div className="access-table-wrap"><table className="data-table access-target-table"><thead><tr><th>Region</th><th>Class group</th><th>2025–26 target</th><th>Q4 enrolment</th><th>Variance</th></tr></thead><tbody>{regionalTargetRows.filter((row)=>['Ibtida–KG I','Nursery–KG I'].includes(row.group)).map((row)=><tr key={row.region+'-'+row.group}><td>{row.region}</td><td>{row.group}</td><td>{displayCount(row.target)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.targetDifference)}>{fmtDiff(row.targetDifference)}</td></tr>)}</tbody></table></div>
-        </section>
       </section>
       {historicalAnalysis.recRows.length>0&&<section className="access-history-overview">
         <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL TRENDS</span><h2>Quarterly enrolment and previous-class comparison</h2><p>Historical academic years are available in REC & Class Analysis. These totals are aggregated from REC-level records.</p></div><span>{historicalAnalysis.years.length} academic years</span></div>
