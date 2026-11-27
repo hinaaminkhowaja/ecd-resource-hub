@@ -161,6 +161,7 @@ export default function RedFlagsView({ records }) {
           <ol>{items.map((rec, i) => {
             const reasonKey = [view, rec.recCode, 'REC'].join('::');
             const savedReason = reasons[reasonKey];
+            const previousClassReasons = rec.variances.map((e) => ({ className: e.r.className, detail: reasons[[view, e.r.recCode, e.r.classCode || e.r.className].join('::')] })).filter((item) => item.detail);
             return <li key={rec.recCode} className={rec.zero ? 'is-critical' : ''}>
               <span className="rf-rank">{i + 1}</span>
               <div className="rf-main">
@@ -180,6 +181,7 @@ export default function RedFlagsView({ records }) {
               </div>
               <div className="rf-rec-severity"><small>Worst decline</small><b>{lostPct(rec.worstPct)}</b><span>{lost(rec.totalDrop)} children across classes</span></div>
               <div className="rf-reason-area">
+                {previousClassReasons.map((item) => <div className="rf-reason-saved rf-legacy-reason" key={item.className}><div className="rf-reason-heading"><span>Existing reason · {item.className}</span></div><p>{item.detail.reason}</p><small>Added by <b>{item.detail.name}</b> · {item.detail.designation}</small></div>)}
                 {savedReason ? <div className="rf-reason-saved">
                   <div className="rf-reason-heading"><span>REC reason / context</span><button type="button" onClick={() => editReason(reasonKey)}>Edit</button></div>
                   <p>{savedReason.reason}</p>
