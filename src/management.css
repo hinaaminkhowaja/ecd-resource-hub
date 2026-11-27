@@ -241,11 +241,14 @@
 
 /* Enrolment Overview readability: positive movement, distinct quarter rows, compact region labels */
 .access-class-matrix .access-quarter-row th,.access-class-matrix .access-quarter-row td{font-weight:700}
-.access-class-matrix .access-quarter-q1 th,.access-class-matrix .access-quarter-q1 td,
-.access-class-matrix .access-quarter-q2 th,.access-class-matrix .access-quarter-q2 td,
-.access-class-matrix .access-quarter-q3 th,.access-class-matrix .access-quarter-q3 td,
-.access-class-matrix .access-quarter-q4 th,.access-class-matrix .access-quarter-q4 td{background:#fff5e8;color:#85551c}
+.access-class-matrix .access-quarter-row th,.access-class-matrix .access-quarter-row td{background:#fff!important;color:inherit!important;font-weight:800}
 .access-class-matrix thead th:not(:first-child){min-width:76px;padding:8px 7px;font-size:10px;line-height:1.2}
 .access-class-matrix td:not(:first-child){padding:8px 7px;font-size:11px}
 .access-class-matrix{min-width:920px!important}
 .access-class-matrix thead th:first-child{min-width:155px}
+
+
+/* Consistent matrix hierarchy: dark header, distinct indicator column, plain bold quarter rows */
+.access-class-matrix thead th{background:#315b49!important;color:#fff!important;font-weight:800}
+.access-class-matrix tbody th{background:#edf3ef!important;color:#315344!important;font-weight:700}
+.access-class-matrix .access-quarter-row th,.access-class-matrix .access-quarter-row td{background:#fff!important;color:inherit!important;font-weight:800}
