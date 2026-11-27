@@ -117,3 +117,30 @@
 .rf-add-reason{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:9px 14px;border:1px solid #7da98a;border-radius:8px;background:#eaf3ec;color:#204f34;font-size:12px;font-weight:800}
 .rf-add-reason:hover{background:#dcebe0;border-color:#4f8961}
 .rf-reason-saved{margin-top:2px}
+
+
+/* Brighter, more engaging REC variance panels and always-visible reason forms. */
+.rf-panel{border:1px solid #a9cbb7;box-shadow:0 5px 18px rgba(28,86,57,.09)}
+.rf-panel>header{background:linear-gradient(105deg,#145b43 0%,#16836a 58%,#20a18a 100%);padding:14px 16px}
+.rf-code{background:#e2f5e9;color:#145b43}
+.rf-panel li{background:#fbfefc}
+.rf-panel li:nth-child(even){background:#f3faf6}
+.rf-panel li.is-critical{background:#fff}
+.rf-rank{background:#d8f1e2;color:#126044}
+.rf-class-variance{background:linear-gradient(110deg,#effaf3 0%,#f5fbff 100%);border-color:#c4e3d0}
+.rf-class-heading>b{color:#116348}
+.rf-class-metrics strong,.rf-class-metrics>b{color:#a45b13}
+.rf-bar{background:#dcebe2}
+.rf-bar-keep{background:linear-gradient(90deg,#20a36d,#53c58b)}
+.rf-rec-severity{padding:10px 12px;border:1px solid #f0d7a5;border-radius:10px;background:#fff8e8}
+.rf-rec-severity>b{color:#a45b13}
+.rf-reason-area{padding:13px;border:1px solid #b9dcca;border-top:3px solid #26936c;border-radius:12px;background:linear-gradient(120deg,#eef9f2 0%,#f1f8ff 100%)}
+.rf-reason-saved{background:#e1f5e8;border-color:#9bcfaf;border-left-color:#16845c}
+.rf-reason-heading span{color:#126348}
+.rf-reason-editor{background:#fff;border:1px solid #b7d9c5;box-shadow:0 2px 8px rgba(25,93,62,.06)}
+.rf-reason-editor-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#145b43;font-size:12px}
+.rf-reason-editor-heading span{padding:3px 8px;border-radius:999px;background:#dff4e7;color:#176346;font-size:10px;font-weight:800}
+.rf-reason-editor input:focus,.rf-reason-editor textarea:focus{outline:2px solid #75c69a;outline-offset:1px;border-color:#26936c}
+.rf-reason-actions button:last-child{border-color:#147653;background:linear-gradient(100deg,#146447,#168b69);color:#fff}
+.rf-reason-actions button:last-child:hover{background:#0f573e}
+@media(max-width:560px){.rf-reason-area{padding:10px}}
