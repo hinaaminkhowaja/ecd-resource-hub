@@ -105,3 +105,6 @@
   .rf-reason-area{grid-column:1/-1}
   .rf-class-variance{grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;padding:9px}
 }
+
+.rf-reason-area{display:grid;gap:8px}
+.rf-legacy-reason{background:#f7f9f7;border-color:#d9e2db;border-left-color:#8aa895}
