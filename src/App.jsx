@@ -356,6 +356,46 @@ function findRecordField(record, candidates) {
   return key ? String(record[key] ?? '').trim() : '';
 }
 
+
+function buildEnrollmentVarianceFlags(records, threshold = 20) {
+  const flags = [];
+  const fields = ['q1', 'q2', 'q3', 'q4'];
+  const labels = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const valid = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+  const add = (r, type, severity, label, previous, current, changePct, comparison) => flags.push({
+    key: ['variance', r.recCode, r.classCode, type].join('::'), type, severity, label,
+    previous, current, changePct, comparison, region:r.region, localBoard:r.localBoard,
+    recName:r.recName, className:r.className, recCode:r.recCode, classCode:r.classCode
+  });
+  records.forEach((r) => {
+    const q = fields.map((f) => valid(r[f]) ? Number(r[f]) : null);
+    const pct = (now, before) => before > 0 ? ((now-before)/before)*100 : null;
+    if (q[3] === 0) add(r,'zero-q4','critical','Zero enrolment in Q4',null,0,null,'Q4 enrolment');
+    for (let i=1;i<4;i++) {
+      if (q[i-1] === null || q[i] === null || q[i-1] <= 0) continue;
+      const change = pct(q[i],q[i-1]);
+      if (change <= -threshold) add(r,'quarter-'+labels[i].toLowerCase(),'high',labels[i]+' decline vs '+labels[i-1],q[i-1],q[i],change,labels[i]+' vs '+labels[i-1]);
+    }
+    let consecutive = false;
+    for (let i=2;i<4;i++) if (q[i-2] !== null && q[i-1] !== null && q[i] !== null && q[i-1] < q[i-2] && q[i] < q[i-1]) consecutive = true;
+    if (consecutive) add(r,'consecutive-quarter-decline','high','Two consecutive quarterly declines',null,null,null,'Consecutive quarter trend');
+    const validQ = q.map((value,index)=>({value,index})).filter((x)=>x.value!==null);
+    if (validQ.length > 1) {
+      const peak = validQ.reduce((best,x)=>x.value>best.value?x:best);
+      validQ.filter((x)=>x.index>peak.index).forEach((x)=>{
+        const change=pct(x.value,peak.value);
+        if (change !== null && change <= -threshold) add(r,'peak-'+labels[x.index].toLowerCase(),'high',labels[x.index]+' decline from quarterly peak',peak.value,x.value,change,labels[x.index]+' vs peak '+labels[peak.index]);
+      });
+    }
+    const baseline = valid(r.enrollment2025) ? Number(r.enrollment2025) : null;
+    if (r.className !== 'Ibtida' && q[3] !== null && baseline !== null && baseline > 0) {
+      const change=pct(q[3],baseline);
+      if (change <= -threshold) add(r,'previous-class-baseline','high','Decline vs previous-year preceding class',baseline,q[3],change,'Q4 current class vs ENR25 previous class');
+    }
+  });
+  return flags;
+}
+
 function AccessEnrollmentPanel({ data }) {
   const records = data?.records || [];
   const regions = useMemo(() => [...new Set(records.map((record) => record.region))].sort(), [records]);
@@ -372,6 +412,9 @@ function AccessEnrollmentPanel({ data }) {
   const [issueVisibleLimit, setIssueVisibleLimit] = useState(60);
   const [issueSyncStatus, setIssueSyncStatus] = useState('loading');
   const [issueSyncReady, setIssueSyncReady] = useState(false);
+  const [varianceRegion, setVarianceRegion] = useState('');
+  const [varianceClass, setVarianceClass] = useState('');
+  const [varianceVisibleLimit, setVarianceVisibleLimit] = useState(100);
   const issueUpdateQueue = useRef(new Map());
   const [issueNotes, setIssueNotes] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
@@ -400,6 +443,14 @@ function AccessEnrollmentPanel({ data }) {
     { label: 'Nursery–KG I', classes: ['Nursery', 'KG I'] },
   ];
   const classNames = ['Ibtida', 'Nursery', 'KG I', 'KG II'];
+  const varianceFlags = useMemo(() => buildEnrollmentVarianceFlags(records), [records]);
+  const filteredVarianceFlags = varianceFlags.filter((flag) =>
+    (!varianceRegion || flag.region === varianceRegion) && (!varianceClass || flag.className === varianceClass)
+  );
+  const visibleVarianceFlags = filteredVarianceFlags.slice(0, varianceVisibleLimit);
+  const criticalVarianceCount = filteredVarianceFlags.filter((flag) => flag.severity === 'critical').length;
+  const highVarianceCount = filteredVarianceFlags.filter((flag) => flag.severity === 'high').length;
+
   const summaryRows = useMemo(() => {
     const makeSummary = (regionName, group) => {
       const subset = records.filter((record) => record.region === regionName && group.classes.includes(record.className));
@@ -480,6 +531,31 @@ function AccessEnrollmentPanel({ data }) {
       <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>Separate class enrolment</h2></div></div>
       <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={summaryRegion} onChange={(event) => setSummaryRegion(event.target.value)}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><fieldset className="access-class-filter"><legend>Classes</legend>{classNames.map((name) => <label key={name}><input type="checkbox" checked={summaryClasses.includes(name)} onChange={() => setSummaryClasses((current) => current.includes(name) ? current.filter((value) => value !== name) : [...current, name])} /><span>{name}</span></label>)}</fieldset></div></div>
       <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class / group</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th><th>Adequate access % Q1</th></tr></thead><tbody>{separateSummaryRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td className={diffClass(row.q1Vs2025)}>{fmtDiff(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2VsQ1)}>{fmtDiff(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3VsQ2)}>{fmtDiff(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4VsQ3)}>{fmtDiff(row.q4VsQ3)}</td><td className={diffClass(row.q4Vs2025)}>{fmtDiff(row.q4Vs2025)}</td><td>{displayCount(row.adequateQ1)}</td><td>{displayCount(row.moderateQ1)}</td><td>{displayCount(row.lowQ1)}</td><td>{displayCount(row.nonQ1)}</td><td>{row.q1 && row.adequateQ1 !== null && row.adequateQ1 !== undefined ? (Number(row.adequateQ1) / Number(row.q1) * 100).toFixed(1) + '%' : '—'}</td></tr>)}</tbody></table></div>
+
+      <section className="access-variance-section">
+        <div className="access-detail-heading"><div><span className="eyebrow">ENROLMENT VARIANCE ANALYSIS</span><h2>REC and class red flags</h2><p>Flags are calculated from quarterly enrolment figures using a 20% decline threshold.</p></div><span>{filteredVarianceFlags.length.toLocaleString()} flags</span></div>
+        <div className="access-variance-summary">
+          <article><small>Critical · zero Q4</small><strong>{criticalVarianceCount.toLocaleString()}</strong></article>
+          <article><small>Significant declines</small><strong>{highVarianceCount.toLocaleString()}</strong></article>
+          <article><small>REC / class records flagged</small><strong>{new Set(filteredVarianceFlags.map((flag) => flag.recCode + '::' + flag.classCode)).size.toLocaleString()}</strong></article>
+        </div>
+        <div className="classroom-location-selects access-variance-filters">
+          <label className="form-field">Region<select value={varianceRegion} onChange={(event) => { setVarianceRegion(event.target.value); setVarianceVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label className="form-field">Class<select value={varianceClass} onChange={(event) => { setVarianceClass(event.target.value); setVarianceVisibleLimit(100); }}><option value="">All classes</option>{classNames.map((value) => <option key={value}>{value}</option>)}</select></label>
+        </div>
+        <div className="access-variance-list">
+          {visibleVarianceFlags.map((flag) => <article className={'access-variance-card ' + (flag.severity === 'critical' ? 'is-critical' : '')} key={flag.key}>
+            <div className="access-variance-card-heading"><div><b>{flag.recName}</b><small>{flag.region} · {flag.localBoard} · {flag.className}</small></div><span className={flag.severity === 'critical' ? 'variance-critical-pill' : 'variance-high-pill'}>{flag.severity === 'critical' ? 'Critical' : 'Red flag'}</span></div>
+            <strong>{flag.label}</strong>
+            <p>{flag.comparison}{flag.previous !== null && flag.current !== null ? ': ' + displayCount(flag.previous) + ' → ' + displayCount(flag.current) : ''}{flag.changePct !== null ? ' (' + flag.changePct.toFixed(1) + '%)' : ''}</p>
+            <label className="form-field">Investigation reason<textarea rows="2" value={issueNotes[flag.key]?.reason || ''} onChange={(event) => updateIssue(flag.key, 'reason', event.target.value)} placeholder="Record why this enrolment change occurred" /></label>
+            <label className="form-field">Assigned person<input value={issueNotes[flag.key]?.assignedUser || ''} onChange={(event) => updateIssue(flag.key, 'assignedUser', event.target.value)} placeholder="Name of person responsible for follow-up" /></label>
+          </article>)}
+        </div>
+        {filteredVarianceFlags.length > varianceVisibleLimit && <button type="button" className="show-more-access" onClick={() => setVarianceVisibleLimit((limit) => limit + 100)}>Show 100 more flags</button>}
+        {!filteredVarianceFlags.length && <div className="empty-state"><b>No red flags for the selected filters</b><span>Records without a comparable baseline are not assigned a percentage decline.</span></div>}
+        <p className="access-variance-note">ENR25 is treated as the previous-year enrolment in the preceding class. Ibtida is excluded from this progression comparison. Quarterly peak declines and quarter-on-quarter declines are reported separately. The source workbook is not changed.</p>
+      </section>
       <section className="access-followup">
         <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record a reason and assign a person to follow up. <span className="access-sync-status">{issueSyncStatus === 'shared' ? 'Saved for users of this app.' : issueSyncStatus === 'saving' || issueSyncStatus === 'loading' ? 'Saving…' : 'Saved on this device only; shared storage is unavailable.'}</span></p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
         <div className="classroom-location-selects access-followup-filters"><label className="form-field">Region<select value={followupRegion} onChange={(event) => { setFollowupRegion(event.target.value); setIssueVisibleLimit(60); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Class / group<select value={followupGroup} onChange={(event) => { setFollowupGroup(event.target.value); setIssueVisibleLimit(60); }}><option value="">All classes and groups</option>{classesForFollowup.map((value) => <option key={value}>{value}</option>)}</select></label></div>
