@@ -195,7 +195,7 @@ export default function RedFlagsView({ records }) {
                     <label>Designation<input value={(reasonDrafts[reasonKey] || savedReason || {}).designation || ''} onChange={(event) => updateReasonDraft(reasonKey, 'designation', event.target.value)} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
                   </div>
                   <div className="rf-reason-actions"><button type="button" disabled={!((reasonDrafts[reasonKey] || savedReason || {}).reason || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).name || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).designation || '').trim()} onClick={() => saveReason(reasonKey)}>{savedReason ? 'Save updated reason' : 'Save reason'}</button></div>
-                </div>}
+                </div>
               </div>
             </li>;
           })}</ol>
