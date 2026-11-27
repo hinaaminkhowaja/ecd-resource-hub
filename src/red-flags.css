@@ -144,3 +144,26 @@
 .rf-reason-actions button:last-child{border-color:#147653;background:linear-gradient(100deg,#146447,#168b69);color:#fff}
 .rf-reason-actions button:last-child:hover{background:#0f573e}
 @media(max-width:560px){.rf-reason-area{padding:10px}}
+
+
+/* Keep the green reserved for the panel header; use a lighter, non-green body palette. */
+.rf-panel li,
+.rf-panel li:nth-child(even),
+.rf-panel li.is-critical{background:#fff}
+.rf-panel li:nth-child(even){background:#fbfaf7}
+.rf-class-variance{background:#f4f7fb;border-color:#d8e1ed}
+.rf-class-heading>b{color:#344b68}
+.rf-reason-area{background:#f7f8fa;border:1px solid #d9dee7;border-top:3px solid #7c91ad}
+.rf-reason-editor{background:#fff;border-color:#d9dee7}
+.rf-reason-editor-heading{color:#354b66}
+.rf-reason-editor-heading span{background:#e9eef5;color:#465d7b}
+.rf-reason-editor label{color:#46566b}
+.rf-reason-saved{background:#f1f4f8;border-color:#cbd5e1;border-left-color:#7187a5}
+.rf-reason-heading span{color:#405875}
+.rf-reason-saved p{color:#293747}
+.rf-reason-saved small{color:#667386}
+.rf-reason-saved small b{color:#354b66}
+.rf-reason-actions button:last-child{border-color:#435c7a;background:#435c7a;color:#fff}
+.rf-reason-actions button:last-child:hover{background:#344b68}
+.rf-rec-severity{background:#fff8ed;border-color:#ead9bd}
+.rf-rec-severity>b{color:#9a5c1d}
