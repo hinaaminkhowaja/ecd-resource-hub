@@ -6,8 +6,6 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
-const accessIssuesPath = path.join(storeDirectory, 'access-issues.json');
-let accessIssueWriteQueue = Promise.resolve();
 const port = Number(process.env.API_PORT || 3001);
 async function readReceipts() {
   try {
@@ -21,15 +19,6 @@ async function readReceipts() {
 async function writeReceipts(rows) {
   await mkdir(storeDirectory, { recursive: true });
   await writeFile(storePath, JSON.stringify(rows, null, 2), 'utf8');
-}
-
-async function readAccessIssues() {
-  try {
-    const issues = JSON.parse(await readFile(accessIssuesPath, 'utf8'));
-    return issues && typeof issues === 'object' && !Array.isArray(issues) ? issues : {};
-  } catch {
-    return {};
-  }
 }
 
 async function writeAccessIssues(issues) {
@@ -81,10 +70,6 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   if (request.method === 'GET' && request.url === '/api/receipts') {
     response.end(JSON.stringify({ receipts: await readReceipts() }));
-    return;
-  }
-  if (request.method === 'GET' && request.url === '/api/access-issues') {
-    response.end(JSON.stringify({ issues: await readAccessIssues() }));
     return;
   }
   if (request.method === 'POST' && request.url === '/api/access-issues') {
