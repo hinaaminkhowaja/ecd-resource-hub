@@ -68,21 +68,21 @@ export default function RedFlagsView({ records }) {
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
   const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
-  const [editingReason, setEditingReason] = useState('');
-  const [reasonDraft, setReasonDraft] = useState({ name: '', designation: '', reason: '' });
+  const [reasonDrafts, setReasonDrafts] = useState({});
   const [open, setOpen] = useState({});
 
-  function saveReason(key) {
-    const next = { ...reasons, [key]: { ...reasonDraft, updatedAt: new Date().toISOString() } };
-    setReasons(next);
-    window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
-    setEditingReason('');
+  function updateReasonDraft(key, field, value) {
+    setReasonDrafts((current) => ({
+      ...current,
+      [key]: { ...(current[key] || {}), [field]: value }
+    }));
   }
 
-  function editReason(key) {
-    const existing = reasons[key] || {};
-    setReasonDraft({ name: existing.name || '', designation: existing.designation || '', reason: existing.reason || '' });
-    setEditingReason(key);
+  function saveReason(key) {
+    const draft = reasonDrafts[key] || {};
+    const next = { ...reasons, [key]: { ...draft, updatedAt: new Date().toISOString() } };
+    setReasons(next);
+    window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
   }
 
   const scoped = useMemo(() => records.filter((r) => (!region || r.region === region) && classMatches(group, r.className)), [records, region, group]);
@@ -182,19 +182,19 @@ export default function RedFlagsView({ records }) {
               <div className="rf-rec-severity"><small>Worst decline</small><b>{lostPct(rec.worstPct)}</b><span>{lost(rec.totalDrop)} children across classes</span></div>
               <div className="rf-reason-area">
                 {previousClassReasons.map((item) => <div className="rf-reason-saved rf-legacy-reason" key={item.className}><div className="rf-reason-heading"><span>Existing reason · {item.className}</span></div><p>{item.detail.reason}</p><small>Added by <b>{item.detail.name}</b> · {item.detail.designation}</small></div>)}
-                <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>{savedReason ? '＋ Update REC reason' : '＋ Add reason for this REC'}</button>
                 {savedReason && <div className="rf-reason-saved">
                   <div className="rf-reason-heading"><span>REC reason / context</span><span>Recorded</span></div>
                   <p>{savedReason.reason}</p>
                   <small>Added by <b>{savedReason.name}</b> · {savedReason.designation}</small>
                 </div>}
-                {editingReason === reasonKey && <div className="rf-reason-editor">
-                  <label>Reason / context<textarea rows="2" value={reasonDraft.reason} onChange={(event) => setReasonDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="Explain the likely reason for the enrolment gaps across the classes…" /></label>
+                <div className="rf-reason-editor">
+                  <div className="rf-reason-editor-heading"><b>{savedReason ? 'Update REC reason / context' : 'Add reason for this REC'}</b><span>Always visible</span></div>
+                  <label>Reason / context<textarea rows="2" value={(reasonDrafts[reasonKey] || savedReason || {}).reason || ''} onChange={(event) => updateReasonDraft(reasonKey, 'reason', event.target.value)} placeholder="Explain the likely reason for the enrolment gaps across the classes…" /></label>
                   <div className="rf-reason-person">
-                    <label>Name<input value={reasonDraft.name} onChange={(event) => setReasonDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder="Name of person adding the reason" /></label>
-                    <label>Designation<input value={reasonDraft.designation} onChange={(event) => setReasonDraft((draft) => ({ ...draft, designation: event.target.value }))} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
+                    <label>Name<input value={(reasonDrafts[reasonKey] || savedReason || {}).name || ''} onChange={(event) => updateReasonDraft(reasonKey, 'name', event.target.value)} placeholder="Name of person adding the reason" /></label>
+                    <label>Designation<input value={(reasonDrafts[reasonKey] || savedReason || {}).designation || ''} onChange={(event) => updateReasonDraft(reasonKey, 'designation', event.target.value)} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
                   </div>
-                  <div className="rf-reason-actions"><button type="button" onClick={() => setEditingReason('')}>Cancel</button><button type="button" disabled={!reasonDraft.reason.trim() || !reasonDraft.name.trim() || !reasonDraft.designation.trim()} onClick={() => saveReason(reasonKey)}>Save reason</button></div>
+                  <div className="rf-reason-actions"><button type="button" disabled={!((reasonDrafts[reasonKey] || savedReason || {}).reason || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).name || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).designation || '').trim()} onClick={() => saveReason(reasonKey)}>{savedReason ? 'Save updated reason' : 'Save reason'}</button></div>
                 </div>}
               </div>
             </li>;
