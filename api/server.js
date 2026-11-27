@@ -6,21 +6,20 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
 const storePath = path.join(storeDirectory, 'receipt-store.json');
+const reasonsPath = path.join(storeDirectory, 'red-flag-reasons.json');
 const port = Number(process.env.API_PORT || 3001);
-async function readReceipts() {
-  try {
-    const rows = JSON.parse(await readFile(storePath, 'utf8'));
-    return Array.isArray(rows) ? rows.filter((row) => row?.id).map(removeEmailMetadata) : [];
-  } catch {
-    return [];
-  }
-}
 
-async function writeReceipts(rows) {
+async function readJsonFile(file, fallback) {
+  try { return JSON.parse(await readFile(file, 'utf8')); } catch { return fallback; }
+}
+async function writeJsonFile(file, value) {
   await mkdir(storeDirectory, { recursive: true });
-  await writeFile(storePath, JSON.stringify(rows, null, 2), 'utf8');
+  await writeFile(file, JSON.stringify(value, null, 2), 'utf8');
 }
-
+async function readReceipts() {
+  const rows = await readJsonFile(storePath, []);
+  return Array.isArray(rows) ? rows.filter((row) => row?.id).map(removeEmailMetadata) : [];
+}
 function removeEmailMetadata(receipt) {
   const { reminderEvents, ...record } = receipt;
   record.timeline = (Array.isArray(receipt.timeline) ? receipt.timeline : [])
@@ -31,22 +30,17 @@ function removeEmailMetadata(receipt) {
     });
   return record;
 }
-
 async function saveReceipt(receipt) {
-  if (!receipt?.id || !Number.isInteger(Number(receipt.stage)) || Number(receipt.stage) < 1 || Number(receipt.stage) > 4) {
-    return { error: 'Receipt details are incomplete.' };
-  }
+  if (!receipt?.id || !Number.isInteger(Number(receipt.stage)) || Number(receipt.stage) < 1 || Number(receipt.stage) > 4) return { error: 'Receipt details are incomplete.' };
   const rows = await readReceipts();
-  const existingIndex = rows.findIndex((row) => row.id === receipt.id);
-  const existing = existingIndex >= 0 ? rows[existingIndex] : null;
+  const index = rows.findIndex((row) => row.id === receipt.id);
+  const existing = index >= 0 ? rows[index] : null;
   const next = removeEmailMetadata({ ...existing, ...receipt, timeline: receipt.timeline || [] });
   next.updatedAt = new Date().toISOString();
-  if (existingIndex >= 0) rows[existingIndex] = next;
-  else rows.unshift(next);
-  await writeReceipts(rows);
+  if (index >= 0) rows[index] = next; else rows.unshift(next);
+  await writeJsonFile(storePath, rows);
   return { receipt: next };
 }
-
 function readRequest(request) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -60,28 +54,48 @@ function readRequest(request) {
     request.on('error', reject);
   });
 }
+function send(response, status, data) {
+  response.statusCode = status;
+  response.end(JSON.stringify(data));
+}
 
 const server = http.createServer(async (request, response) => {
-  response.setHeader('Content-Type', 'application/json');
+  response.setHeader('Content-Type', 'application/json; charset=utf-8');
+  response.setHeader('Cache-Control', 'no-store');
+
   if (request.method === 'GET' && request.url === '/api/receipts') {
-    response.end(JSON.stringify({ receipts: await readReceipts() }));
+    send(response, 200, { receipts: await readReceipts() });
     return;
   }
   if (request.method === 'POST' && request.url === '/api/receipts') {
     try {
       const body = await readRequest(request);
       const result = await saveReceipt(body.receipt);
-      if (result.error) { response.statusCode = 400; response.end(JSON.stringify(result)); return; }
-      response.end(JSON.stringify(result));
-    } catch (error) {
-      response.statusCode = 400;
-      response.end(JSON.stringify({ error: error.message }));
-    }
+      send(response, result.error ? 400 : 200, result);
+    } catch (error) { send(response, 400, { error: error.message }); }
     return;
   }
-  response.statusCode = 404;
-  response.end(JSON.stringify({ error: 'Not found.' }));
+  if (request.method === 'GET' && request.url === '/api/red-flags') {
+    send(response, 200, { reasons: await readJsonFile(reasonsPath, {}) });
+    return;
+  }
+  if (request.method === 'POST' && request.url === '/api/red-flags') {
+    try {
+      const body = await readRequest(request);
+      const key = String(body.key || '').trim();
+      const reason = body.reason;
+      if (!key || !reason || !String(reason.reason || '').trim() || !String(reason.name || '').trim() || !String(reason.designation || '').trim()) {
+        send(response, 400, { error: 'Complete the reason, name and designation.' });
+        return;
+      }
+      const reasons = await readJsonFile(reasonsPath, {});
+      reasons[key] = { ...reason, updatedAt: new Date().toISOString() };
+      await writeJsonFile(reasonsPath, reasons);
+      send(response, 200, { ok: true, reason: reasons[key] });
+    } catch (error) { send(response, 400, { error: error.message }); }
+    return;
+  }
+  send(response, 404, { error: 'Not found.' });
 });
 
-server.listen(port, '127.0.0.1', () => console.log(`Receipt service listening on 127.0.0.1:${port}`));
-
+server.listen(port, '127.0.0.1', () => console.log(`Local data service listening on 127.0.0.1:${port}`));
