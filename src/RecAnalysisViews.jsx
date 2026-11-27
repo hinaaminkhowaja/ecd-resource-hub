@@ -58,7 +58,7 @@ export function recStatus(r) {
   return 'flat';
 }
 
-export function RecWiseView({ records, renderReason }) {
+export function RecWiseView({ records }) {
   const [statusFilter, setStatusFilter] = useState('');
   const [sort, setSort] = useState('default');
   const [limit, setLimit] = useState(50);
@@ -101,7 +101,7 @@ export function RecWiseView({ records, renderReason }) {
     </div>
 
     <div className="ra-wrap"><table className="ra-table">
-      <thead><tr><th>REC</th><th>Class</th><th>2025 baseline</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q4 vs Q1</th><th>Q4 vs 2025</th><th>Trend</th><th>Status</th><th>Reason</th></tr></thead>
+      <thead><tr><th>REC</th><th>Class</th><th>2025 baseline</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q4 vs Q1</th><th>Q4 vs 2025</th><th>Trend</th><th>Status</th></tr></thead>
       <tbody>{visible.slice(0, limit).map(({ r, status, change }, i) => {
         const s = STATUS[status];
         return <tr key={r.recCode + '-' + r.classCode + '-' + i}>
@@ -114,7 +114,6 @@ export function RecWiseView({ records, renderReason }) {
           <td className={'ra-var ' + tone(num(r.q4Vs2025))}>{withPct(num(r.q4Vs2025), num(r.enrollment2025))}</td>
           <td><Spark values={[r.q1, r.q2, r.q3, r.q4]} /></td>
           <td><span className={'ra-badge ' + s.cls}>{s.label}</span></td>
-          <td>{renderReason(r)}</td>
         </tr>;
       })}</tbody>
     </table></div>
@@ -124,38 +123,14 @@ export function RecWiseView({ records, renderReason }) {
   </div>;
 }
 
-const YEAR_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#6250d6'];
 const ACCESS = [['Adequate', '#246e48'], ['Moderate', '#e0a526'], ['Low', '#e8793d'], ['NonAccess', '#be322d']];
 
 export function HistoryView({ rows }) {
   const [limit, setLimit] = useState(50);
   useEffect(() => setLimit(50), [rows]);
-  const years = useMemo(() => [...new Set(rows.map((r) => r.year))].sort(), [rows]);
-  const totals = useMemo(() => years.map((y) => {
-    const yr = rows.filter((r) => r.year === y);
-    return { year: y, q: ['q1', 'q2', 'q3', 'q4'].map((f) => sumOf(yr, f)) };
-  }), [rows, years]);
   if (!rows.length) return null;
 
-  const all = totals.flatMap((t) => t.q).filter((v) => v !== null);
-  const lo = Math.min(...all) * 0.95, hi = Math.max(...all) * 1.04, span = hi - lo || 1;
-  const X = (i) => 70 + i * 170, Y = (v) => 190 - ((v - lo) / span) * 150;
-
   return <div className="ra">
-    <h4 className="ra-h">Quarterly enrolment by academic year</h4>
-    <div className="ra-legend">{totals.map((t, i) => <span key={t.year}><i style={{ background: YEAR_COLORS[i % YEAR_COLORS.length] }} />{t.year}</span>)}</div>
-    <svg viewBox="0 0 620 220" width="100%" role="img" aria-label="Total enrolment per quarter, one line per academic year" className="ra-chart">
-      {[0, 1, 2, 3].map((i) => <g key={i}><line x1={X(i)} x2={X(i)} y1="30" y2="190" stroke="#e1e6e2" /><text x={X(i)} y="210" textAnchor="middle" fontSize="12" fill="#6a7a70">Q{i + 1}</text></g>)}
-      {totals.map((t, ti) => {
-        const col = YEAR_COLORS[ti % YEAR_COLORS.length];
-        const pts = t.q.map((v, i) => (v === null ? null : [X(i), Y(v), v])).filter(Boolean);
-        return <g key={t.year}>
-          <polyline points={pts.map((p) => p[0] + ',' + p[1]).join(' ')} fill="none" stroke={col} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-          {pts.map((p, i) => <g key={i}><circle cx={p[0]} cy={p[1]} r="4" fill={col} /><text x={p[0]} y={p[1] - 9} textAnchor="middle" fontSize="11" fill="#33443a">{Math.round(p[2]).toLocaleString()}</text></g>)}
-        </g>;
-      })}
-    </svg>
-
     <h4 className="ra-h">REC records</h4>
     <div className="ra-legend">{ACCESS.map(([k, c]) => <span key={k}><i style={{ background: c }} />{k === 'NonAccess' ? 'Non-access' : k}</span>)}<span className="ra-muted">Q4 access mix</span></div>
     <div className="ra-wrap"><table className="ra-table">

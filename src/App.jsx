@@ -10,6 +10,7 @@ import ibtidaClassroomsEncoded from './data/ibtida-classrooms.json.gz.b64?raw';
 import accessEnrollmentEncoded from './data/access-enrollment.json.gz.b64?raw';
 import EnrolmentVisual from './EnrolmentVisual.jsx';
 import { RecWiseView, HistoryView, CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
+import RedFlagsView from './RedFlagsView.jsx';
 import './management.css';
 import './receipts.css';
 
@@ -770,32 +771,7 @@ function AccessEnrollmentPanel({ data }) {
         <p className="access-variance-note">Previous-class comparison: Nursery vs Ibtida, KG I vs Nursery, and KG II vs KG I. 2022–23 has no preceding-year baseline in this workbook; Ibtida has no preceding ECED class.</p>
       </section>}
       </>}
-      {section==='red-flags' && <>
-      <section className="access-variance-section">
-        <div className="access-detail-heading"><div><span className="eyebrow">ENROLMENT VARIANCE ANALYSIS</span><h2>REC and class red flags</h2><p>Flags are calculated from quarterly enrolment figures using a 20% decline threshold.</p></div><span>{filteredVarianceFlags.length.toLocaleString()} flags</span></div>
-        <div className="access-variance-summary">
-          <article><small>Critical · zero Q4</small><strong>{criticalVarianceCount.toLocaleString()}</strong></article>
-          <article><small>Significant declines</small><strong>{highVarianceCount.toLocaleString()}</strong></article>
-          <article><small>REC / class records flagged</small><strong>{new Set(filteredVarianceFlags.map((flag) => flag.recCode + '::' + flag.classCode)).size.toLocaleString()}</strong></article>
-        </div>
-        <div className="classroom-location-selects access-variance-filters">
-          <label className="form-field">Region<select value={varianceRegion} onChange={(event) => { setVarianceRegion(event.target.value); setVarianceVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label className="form-field">Class<select value={varianceClass} onChange={(event) => { setVarianceClass(event.target.value); setVarianceVisibleLimit(100); }}><option value="">All classes</option>{classNames.map((value) => <option key={value}>{value}</option>)}</select></label>
-        </div>
-        <div className="access-variance-list">
-          {visibleVarianceFlags.map((flag) => <article className={'access-variance-card ' + (flag.severity === 'critical' ? 'is-critical' : '')} key={flag.key}>
-            <div className="access-variance-card-heading"><div><b>{flag.recName}</b><small>{flag.region} · {flag.localBoard} · {flag.className}</small></div><span className={flag.severity === 'critical' ? 'variance-critical-pill' : 'variance-high-pill'}>{flag.severity === 'critical' ? 'Critical' : 'Red flag'}</span></div>
-            <strong>{flag.label}</strong>
-            <p>{flag.comparison}{flag.previous !== null && flag.current !== null ? ': ' + displayCount(flag.previous) + ' → ' + displayCount(flag.current) : ''}{flag.changePct !== null ? ' (' + flag.changePct.toFixed(1) + '%)' : ''}</p>
-            <label className="form-field">Investigation reason<textarea rows="2" value={issueNotes[flag.key]?.reason || ''} onChange={(event) => updateIssue(flag.key, 'reason', event.target.value)} placeholder="Record why this enrolment change occurred" /></label>
-            <label className="form-field">Assigned person<input value={issueNotes[flag.key]?.assignedUser || ''} onChange={(event) => updateIssue(flag.key, 'assignedUser', event.target.value)} placeholder="Name of person responsible for follow-up" /></label>
-          </article>)}
-        </div>
-        {filteredVarianceFlags.length > varianceVisibleLimit && <button type="button" className="show-more-access" onClick={() => setVarianceVisibleLimit((limit) => limit + 100)}>Show 100 more flags</button>}
-        {!filteredVarianceFlags.length && <div className="empty-state"><b>No red flags for the selected filters</b><span>Records without a comparable baseline are not assigned a percentage decline.</span></div>}
-        <p className="access-variance-note">ENR25 is treated as the previous-year enrolment in the preceding class. Ibtida is excluded from this progression comparison. Quarterly peak declines and quarter-on-quarter declines are reported separately. The source workbook is not changed.</p>
-      </section>
-      </>}
+      {section==='red-flags' && <RedFlagsView records={records} issueNotes={issueNotes} updateIssue={updateIssue} />}
       {section==='follow-up' && <>
       <section className="access-followup">
         <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record a reason and assign a person to follow up. <span className="access-sync-status">{issueSyncStatus === 'shared' ? 'Saved for users of this app.' : issueSyncStatus === 'saving' || issueSyncStatus === 'loading' ? 'Saving…' : 'Saved on this device only; shared storage is unavailable.'}</span></p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
@@ -806,7 +782,7 @@ function AccessEnrollmentPanel({ data }) {
       </>}
       {section==='rec-class' && <>
         <section className="access-history-section">
-          <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL ACCESS & ENROLMENT</span><h2>Quarterly trends · 2022–23 to 2025–26</h2><p>Import the historical workbook once in this browser. Its REC, class, year, quarter, and access records are saved locally for later visits.</p></div><span>{historyRecords.length.toLocaleString()} quarter records</span></div>
+          <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL ACCESS & ENROLMENT</span><h2>Historical enrolment · 2022–23 to 2025–26</h2><p>Import the historical workbook once in this browser. Its REC, class, year, quarter, and access records are saved locally for later visits.</p></div><span>{historyRecords.length.toLocaleString()} quarter records</span></div>
           <div className="access-history-import"><label className="form-field">Import historical workbook (.xlsx)<input type="file" accept=".xlsx,.xls" onChange={(event)=>importHistoricalWorkbook(event.target.files?.[0])}/></label><span>{historyStatus}</span></div>
           {historyRecords.length>0 && <>
             <div className="classroom-location-selects access-variance-filters">
@@ -823,7 +799,7 @@ function AccessEnrollmentPanel({ data }) {
         </section>
       <div className="access-detail-heading"><div><span className="eyebrow">REC-WISE DATA</span><h2>Quarterly enrolment by class</h2></div><span>{filtered.length.toLocaleString()} matching records</span></div>
       <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); setVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Local Board<select value={localBoard} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); setVisibleLimit(100); }}><option value="">All local boards</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">REC<select value={recName} onChange={(event) => { setRecName(event.target.value); setVisibleLimit(100); }}><option value="">All RECs</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label><label className="form-field">Class / group<select value={classFilter} onChange={(event) => { setClassFilter(event.target.value); setVisibleLimit(100); }}><option value="">All classes and groups</option>{CLASS_GROUPS.map((g) => <option key={g.label}>{g.label}</option>)}</select></label><label className="form-field">Search REC<input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }} placeholder="REC or board name" /></label></div></div>
-      <RecWiseView records={filtered} renderReason={(record) => <details className="rec-reason-editor"><summary>{issueNotes['rec::' + record.recCode + '::' + record.classCode]?.reason ? 'Edit reason' : 'Add reason'}</summary><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.reason || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'reason', event.target.value)} placeholder="Enter the reason for this difference" /></label><label className="form-field">User name<input value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.assignedUser || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'assignedUser', event.target.value)} placeholder="Name" /></label><label className="form-field">Designation<input value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.designation || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'designation', event.target.value)} placeholder="Designation" /></label></details>} />
+      <RecWiseView records={filtered} />
       </>}
     </>}
   </section>;
