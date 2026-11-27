@@ -108,3 +108,12 @@
 
 .rf-reason-area{display:grid;gap:8px}
 .rf-legacy-reason{background:#f7f9f7;border-color:#d9e2db;border-left-color:#8aa895}
+
+
+/* Use neutral severity styling; keep the reason action visible and clear. */
+.rf-panel li.is-critical{background:#fff}
+.is-critical .rf-rank{background:#e6eee8;color:#244b3b}
+.is-critical .rf-chips span:first-child{background:#f4edda;color:#735b22}
+.rf-add-reason{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:9px 14px;border:1px solid #7da98a;border-radius:8px;background:#eaf3ec;color:#204f34;font-size:12px;font-weight:800}
+.rf-add-reason:hover{background:#dcebe0;border-color:#4f8961}
+.rf-reason-saved{margin-top:2px}
