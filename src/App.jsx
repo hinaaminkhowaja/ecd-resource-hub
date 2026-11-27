@@ -744,7 +744,7 @@ function AccessEnrollmentPanel({ data }) {
           ];
           return <section className="access-class-overview" key={className}>
             <div className="access-class-overview-heading"><h3>{className}</h3><span>{group.classes.length===1?(className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'):'Combined class group'}</span></div>
-            <EnrolmentVisual className={className} regionNames={displayRegions} getValue={getValue} getTarget={getTarget} />
+            <EnrolmentVisual className={className} previousClass={({'Nursery':'Ibtida','KG I':'Nursery','KG II':'KG I'})[className]||null} regionNames={displayRegions} getValue={getValue} getTarget={getTarget} />
             <details className="ev-drill"><summary>Full indicator table</summary>
             <div className="access-table-wrap"><table className="data-table access-class-matrix">
               <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName==='All Regions'?'Total':({'Southern_01':'1|SO','Central_02':'2|CE','Upper Chitral_03':'3|UC','Lower Chitral_04':'4|LC','Gupis-Yasin_05':'5|GY','Ishkoman-Puniyal_06':'6|IP','Hunza_07':'7|HZ','Gilgit_08':'8|GL'}[regionName]||regionName)}</th>)}</tr></thead>

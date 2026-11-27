@@ -30,3 +30,24 @@
 .ev-drill{border:1px solid #e1e9e0;border-radius:12px;background:#fff;padding:0 12px}
 .ev-drill>summary{cursor:pointer;padding:12px 0;font-weight:700;font-size:13px;color:#315b49}
 .ev-drill[open]>summary{border-bottom:1px solid #e1e9e0;margin-bottom:10px}
+.ev-legend{display:flex;gap:16px;font-size:12px;color:#5d6f64}
+.ev-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.ev-tbars{display:grid;gap:10px}
+.ev-tbar{display:flex;align-items:center;gap:10px;font-size:13px}
+.ev-tbar-lines{flex:1;display:grid;gap:3px}
+.ev-tbar-row{display:flex;align-items:center;gap:8px}
+.ev-tbar-track{flex:1;height:13px;background:#f0f3f1;border-radius:3px;overflow:hidden}
+.ev-tbar-track .ev-bar-fill{border-radius:3px}
+.ev-bar-fill.is-target{background:#b9c6bd}
+.ev-tbar-val{width:112px;font-size:12px;color:#4b5d52;white-space:nowrap}
+.ev-prev{display:grid;gap:12px;border-top:1px solid #e1e9e0;padding-top:14px;margin-top:4px}
+.ev-div{display:grid;gap:8px}
+.ev-div-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.ev-div-track{position:relative;flex:1;height:20px;background:#f0f3f1;border-radius:4px}
+.ev-div-axis{position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1.5px solid #8a998f}
+.ev-div-fill{position:absolute;top:0;bottom:0}
+.ev-div-fill.is-neg{background:#be322d;border-radius:4px 0 0 4px}
+.ev-div-fill.is-pos{background:#246e48;border-radius:0 4px 4px 0}
+.ev-div-val{width:150px;display:grid;line-height:1.25}
+.ev-div-val small{color:#7a887f;font-size:11px}
+@media(max-width:560px){.ev-tbar-val{width:92px}.ev-div-val{width:118px}}
