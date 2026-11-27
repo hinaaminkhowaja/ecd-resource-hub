@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   ArrowDownToLine, BookOpen, Boxes, CalendarPlus, ChevronDown, CircleHelp,
-  FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
+  AlertTriangle, FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
   Settings2, Shapes, Sofa, Sparkles, Trash2, UsersRound, X,
 } from 'lucide-react';
 import recDirectory from './data/recs.json';
@@ -143,6 +143,7 @@ function App() {
     { id: 'materials', title: 'Materials Bank', description: 'Browse curriculum, activity books, plans, kits, and furniture.', icon: LibraryBig },
     { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
     { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
+    { id: 'redflags', title: 'Enrolment Red Flags', description: 'Review REC-level enrolment declines and record reasons.', icon: AlertTriangle },
   ];
   const currentPanel = panels.find((item) => item.id === panel);
 
@@ -309,6 +310,7 @@ function App() {
 
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
         {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData} />}
+        {panel === 'redflags' && <RedFlagsView records={accessEnrollmentData?.records || []} />}
 
         {panel === 'materials' && <section className="library-section panel-section">
           <div className="panel-action-row"><p>Manage the teaching and classroom materials available to RECs.</p><button className="add-resource-button" onClick={openAddResource}><Plus size={16} />Add material</button></div>
