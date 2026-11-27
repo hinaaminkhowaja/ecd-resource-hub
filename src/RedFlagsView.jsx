@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
 import './red-flags.css';
 
@@ -68,9 +68,18 @@ export default function RedFlagsView({ records }) {
   const [localBoard, setLocalBoard] = useState('');
   const [group, setGroup] = useState('');
   const [threshold, setThreshold] = useState(20);
-  const [reasons, setReasons] = useState(() => { try { const saved = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}'); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; } });
+  const [reasons, setReasons] = useState({});
   const [reasonDrafts, setReasonDrafts] = useState({});
+  const [saveMessage, setSaveMessage] = useState('');
   const [open, setOpen] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/red-flags').then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active && data?.reasons) setReasons(data.reasons); })
+      .catch(() => { if (active) setSaveMessage('Local data service is not running. Start the app with npm run dev.'); });
+    return () => { active = false; };
+  }, []);
 
   function updateReasonDraft(key, field, value) {
     setReasonDrafts((current) => ({
@@ -79,11 +88,17 @@ export default function RedFlagsView({ records }) {
     }));
   }
 
-  function saveReason(key) {
-    const draft = reasonDrafts[key] || {};
-    const next = { ...reasons, [key]: { ...(reasons[key] || {}), ...draft, updatedAt: new Date().toISOString() } };
-    setReasons(next);
-    window.localStorage.setItem('ecd-resource-hub.red-flag-reasons', JSON.stringify(next));
+  async function saveReason(key) {
+    const draft = { ...(reasons[key] || {}), ...(reasonDrafts[key] || {}) };
+    setSaveMessage('Saving…');
+    try {
+      const response = await fetch('/api/red-flags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, reason: draft }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save the reason.');
+      setReasons((current) => ({ ...current, [key]: result.reason }));
+      setReasonDrafts((current) => { const next = { ...current }; delete next[key]; return next; });
+      setSaveMessage('Reason saved on this Codespace.');
+    } catch (error) { setSaveMessage(error.message || 'Could not save the reason.'); }
   }
 
   const localBoardsForFilter = useMemo(() => [...new Set(records.filter((r) => !region || r.region === region).map((r) => r.localBoard || 'Unassigned'))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), [records, region]);
@@ -211,6 +226,7 @@ export default function RedFlagsView({ records }) {
         </section>;
       })}
     </div>
-    <p className="ra-foot">RECs are ranked by their highest percentage decline (most severe first). All flagged class variances for a REC are grouped together; add one shared reason and contributor details beneath the REC. Reasons are saved in this browser.</p>
+    <p className="ra-foot">RECs are ranked by their highest percentage decline (most severe first). All flagged class variances for a REC are grouped together; add one shared reason and contributor details beneath the REC. Reasons are saved in the Codespace project data folder.</p>
+    {saveMessage && <p className="ra-foot" role="status">{saveMessage}</p>}
   </div>;
 }
