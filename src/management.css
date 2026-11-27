@@ -222,3 +222,19 @@
 .access-history-summary span{color:#78857b}
 .access-history-table{min-width:1300px!important}
 @media(max-width:650px){.enrolment-section-tabs{display:grid;grid-template-columns:1fr 1fr}.enrolment-section-tabs button{padding:9px 7px;font-size:10px}.access-history-import{grid-template-columns:1fr}}
+
+
+/* Class-wise Enrolment Overview matrix */
+.access-overview-dashboard{display:grid;gap:18px}
+.access-class-overview{display:grid;gap:10px;padding:16px;border:1px solid #e1e9e0;border-radius:13px;background:#fbfdfb}
+.access-class-overview-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.access-class-overview-heading h3{margin:0;color:#294632;font:700 17px Manrope,sans-serif}
+.access-class-overview-heading span{color:#748176;font:600 10px 'DM Sans',sans-serif;text-align:right}
+.access-class-matrix{min-width:1050px!important}
+.access-class-matrix thead th:first-child,.access-class-matrix tbody th{position:sticky;left:0;z-index:1;background:#f3f7f2;text-align:left;white-space:nowrap}
+.access-class-matrix thead th:first-child{z-index:2}
+.access-class-matrix tbody th{font-weight:700;color:#435b48}
+.access-class-matrix td,.access-class-matrix th{padding:10px 12px}
+.access-class-matrix td:not(:first-child),.access-class-matrix thead th:not(:first-child){text-align:right;white-space:nowrap}
+.access-group-targets{margin-top:4px}
+@media(max-width:650px){.access-class-overview{padding:11px}.access-class-overview-heading{align-items:flex-start;flex-direction:column}.access-class-overview-heading span{text-align:left}}
