@@ -60,7 +60,7 @@ export function buildQuarter(records, threshold) {
   return out;
 }
 
-export default function RedFlagsView({ records, issueNotes, updateIssue }) {
+export default function RedFlagsView({ records }) {
   const [view, setView] = useState('previous');
   const [region, setRegion] = useState('');
   const [group, setGroup] = useState('');
@@ -134,7 +134,6 @@ export default function RedFlagsView({ records, issueNotes, updateIssue }) {
           {items.length === 0 && <p className="rf-none">No red flags in this region at {threshold}%.</p>}
           <ol>{items.map((e, i) => {
             const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
-            const note = issueNotes?.[e.key];
             return <li key={e.key} className={e.zero ? 'is-critical' : ''}>
               <span className="rf-rank">{i + 1}</span>
               <div className="rf-main">
@@ -143,10 +142,6 @@ export default function RedFlagsView({ records, issueNotes, updateIssue }) {
                 <div className="rf-line">{e.line}</div>
                 <span className="rf-bar" title={`${fmt(e.cur)} of ${fmt(e.prev)} remain`}><span className="rf-bar-keep" style={{ width: kept + '%' }} /></span>
                 {e.chips.length > 0 && <div className="rf-chips">{e.chips.map((c, k) => <span key={k}>{c}</span>)}</div>}
-                {updateIssue && <details className="rf-reason"><summary>{note?.reason ? 'Edit reason' : 'Add reason'}{note?.reason ? ' ✓' : ''}</summary>
-                  <label className="form-field">Reason<textarea rows="2" value={note?.reason || ''} onChange={(ev) => updateIssue(e.key, 'reason', ev.target.value)} placeholder="Why did enrolment fall here?" /></label>
-                  <label className="form-field">Assigned person<input value={note?.assignedUser || ''} onChange={(ev) => updateIssue(e.key, 'assignedUser', ev.target.value)} placeholder="Name" /></label>
-                </details>}
               </div>
               <div className="rf-gap"><b>{lost(e.drop)}</b><span>{lostPct(e.pct)}</span></div>
             </li>;
