@@ -109,7 +109,7 @@ export default function RedFlagsView({ records }) {
       rec.zero = rec.zero || e.zero;
     });
     Object.keys(grouped).forEach((key) => {
-      grouped[key] = Object.values(grouped[key]).sort((a, b) => a.worstPct - b.worstPct || b.totalDrop - a.totalDrop);
+      grouped[key] = Object.values(grouped[key]).sort((a, b) => String(a.localBoard || '').localeCompare(String(b.localBoard || ''), undefined, { numeric: true, sensitivity: 'base' }) || String(a.recCode || a.recName || '').localeCompare(String(b.recCode || b.recName || ''), undefined, { numeric: true, sensitivity: 'base' }));
     });
     return grouped;
   }, [entries]);
@@ -152,7 +152,9 @@ export default function RedFlagsView({ records }) {
         const items = list.slice(0, 10);
         const regionLost = list.reduce((a, rec) => a + rec.totalDrop, 0);
         const crit = list.filter((rec) => rec.zero).length;
-        return <section key={rg} className="rf-panel">
+        const regionTone = Math.max(0, REGION_ORDER.indexOf(rg));
+        const localBoards = [...new Set(list.map((rec) => rec.localBoard || 'Unassigned'))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        return <section key={rg} className={`rf-panel rf-region-${regionTone}`}>
           <header>
             <div><span className="rf-code">{SHORT[rg] || rg}</span><b>{regionName(rg)}</b></div>
             <div className="rf-panel-stats"><span><b>{list.length}</b> RECs flagged</span>{crit > 0 && <span className="ra-neg"><b>{crit}</b> zero Q4</span>}<span className="ra-neg"><b>{lost(regionLost)}</b> children</span></div>
@@ -166,7 +168,7 @@ export default function RedFlagsView({ records }) {
               <span className="rf-rank">{i + 1}</span>
               <div className="rf-main">
                 <div className="rf-title"><b>{rec.recName}</b>{rec.zero && <span className="ra-badge is-zero">Zero Q4</span>}</div>
-                <small>{rec.localBoard}</small>
+                <small className={`rf-local-board rf-lb-${Math.max(0, localBoards.indexOf(rec.localBoard || 'Unassigned')) % 8}`}>{rec.localBoard || 'Local board not specified'}</small>
                 <div className="rf-variance-list">
                   {rec.variances.map((e) => {
                     const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
