@@ -182,11 +182,12 @@ export default function RedFlagsView({ records }) {
               <div className="rf-rec-severity"><small>Worst decline</small><b>{lostPct(rec.worstPct)}</b><span>{lost(rec.totalDrop)} children across classes</span></div>
               <div className="rf-reason-area">
                 {previousClassReasons.map((item) => <div className="rf-reason-saved rf-legacy-reason" key={item.className}><div className="rf-reason-heading"><span>Existing reason · {item.className}</span></div><p>{item.detail.reason}</p><small>Added by <b>{item.detail.name}</b> · {item.detail.designation}</small></div>)}
-                {savedReason ? <div className="rf-reason-saved">
-                  <div className="rf-reason-heading"><span>REC reason / context</span><button type="button" onClick={() => editReason(reasonKey)}>Edit</button></div>
+                <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>{savedReason ? '＋ Update REC reason' : '＋ Add reason for this REC'}</button>
+                {savedReason && <div className="rf-reason-saved">
+                  <div className="rf-reason-heading"><span>REC reason / context</span><span>Recorded</span></div>
                   <p>{savedReason.reason}</p>
                   <small>Added by <b>{savedReason.name}</b> · {savedReason.designation}</small>
-                </div> : <button type="button" className="rf-add-reason" onClick={() => editReason(reasonKey)}>＋ Add reason for this REC</button>}
+                </div>}
                 {editingReason === reasonKey && <div className="rf-reason-editor">
                   <label>Reason / context<textarea rows="2" value={reasonDraft.reason} onChange={(event) => setReasonDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="Explain the likely reason for the enrolment gaps across the classes…" /></label>
                   <div className="rf-reason-person">
