@@ -740,7 +740,7 @@ function AccessEnrollmentPanel({ data }) {
           return <section className="access-class-overview" key={className}>
             <div className="access-class-overview-heading"><h3>{className}</h3><span>{group.classes.length===1?(className==='Ibtida'?'Class enrolment and target':className==='Nursery'?'Previous-class comparison: Ibtida':className==='KG I'?'Previous-class comparison: Nursery':'Previous-class comparison: KG I'):'Combined class group'}</span></div>
             <div className="access-table-wrap"><table className="data-table access-class-matrix">
-              <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName==='All Regions'?'All':({'Southern_01':'Southern','Central_02':'Central','Upper Chitral_03':'U. Chitral','Lower Chitral_04':'L. Chitral','Gupis-Yasin_05':'Gupis-Yasin','Ishkoman-Puniyal_06':'Ish.-Pun.','Hunza_07':'Hunza','Gilgit_08':'Gilgit'}[regionName]||regionName)}</th>)}</tr></thead>
+              <thead><tr><th>Indicator</th>{displayRegions.map((regionName)=><th key={regionName}>{regionName==='All Regions'?'Total':({'Southern_01':'1|SO','Central_02':'2|CE','Upper Chitral_03':'3|UC','Lower Chitral_04':'4|LC','Gupis-Yasin_05':'5|GY','Ishkoman-Puniyal_06':'6|IP','Hunza_07':'7|HZ','Gilgit_08':'8|GL'}[regionName]||regionName)}</th>)}</tr></thead>
               <tbody>{metrics.map(([label,field,kind,baselineField])=><tr key={label} className={['q1','q2','q3','q4'].includes(field)?`access-quarter-row access-quarter-${field}`:''}><th scope="row">{label}</th>{displayRegions.map((regionName)=>{
                 const target=getTarget(regionName);
                 const quarterValue=baselineField&&['q1','q2','q3','q4'].includes(baselineField)?getValue(regionName,baselineField):null;
