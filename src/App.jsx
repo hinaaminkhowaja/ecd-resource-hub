@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
 import {
   ArrowDownToLine, BookOpen, Boxes, CalendarPlus, ChevronDown, CircleHelp,
   FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
@@ -126,7 +127,7 @@ function App() {
 
   const panels = [
     { id: 'classrooms', title: 'Classroom Data', description: 'View and import ECED classroom records.', icon: BookOpen },
-    { id: 'access', title: 'ECED Access & Enrollment', description: 'View and import ECED access and enrollment information.', icon: UsersRound },
+    { id: 'access', title: 'Enrolment Management', description: 'Monitor targets, enrolment trends, access, and REC-level follow-up.', icon: UsersRound },
     { id: 'materials', title: 'Materials Bank', description: 'Browse curriculum, activity books, plans, kits, and furniture.', icon: LibraryBig },
     { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
     { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
@@ -357,6 +358,54 @@ function findRecordField(record, candidates) {
 }
 
 
+function openEnrollmentDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open('ecd-resource-hub-enrolment', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('datasets');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+async function saveEnrollmentDataset(key, value) {
+  const db = await openEnrollmentDatabase();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('datasets', 'readwrite');
+    tx.objectStore('datasets').put(value, key);
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+async function loadEnrollmentDataset(key) {
+  const db = await openEnrollmentDatabase();
+  const value = await new Promise((resolve, reject) => {
+    const request = db.transaction('datasets', 'readonly').objectStore('datasets').get(key);
+    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+  });
+  db.close(); return value;
+}
+async function parseHistoricalEnrollmentWorkbook(file) {
+  const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+  const sheet = workbook.Sheets.Sheet1;
+  if (!sheet) throw new Error('The historical workbook must contain Sheet1.');
+  const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: '' });
+  const classNames = { '01IB': 'Ibtida', '02NR': 'Nursery', '03K1': 'KG I', '04K2': 'KG II' };
+  const numeric = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null;
+  };
+  return rows.filter((row) => row.RECName && row.Classes && row.Year && row.Quarter).map((row) => {
+    const parts = String(row.Quarter).split('|'), recName = String(row.RECName).trim();
+    return {
+      region:String(row.RBName || '').trim(), localBoard:String(row.LBName || '').trim(), recName,
+      recCode:recName.includes('|') ? recName.split('|')[0].trim() : recName,
+      classCode:String(row.Classes).trim(), className:classNames[String(row.Classes).trim()] || String(row.Classes).trim(),
+      year:String(row.Year).trim(), quarter:parts[0].trim(), quarterLabel:parts[1] || '',
+      enrollment:numeric(row.ENR), adequate:numeric(row.ADQ), moderate:numeric(row.MOD),
+      low:numeric(row.LOW), nonAccess:numeric(row.NON), isStep:String(row.IsSTEP || '').trim()
+    };
+  });
+}
+
 function buildEnrollmentVarianceFlags(records, threshold = 20) {
   const flags = [];
   const fields = ['q1', 'q2', 'q3', 'q4'];
@@ -398,6 +447,14 @@ function buildEnrollmentVarianceFlags(records, threshold = 20) {
 
 function AccessEnrollmentPanel({ data }) {
   const records = data?.records || [];
+  const [section, setSection] = useState('overview');
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [historyStatus, setHistoryStatus] = useState('Checking saved historical data…');
+  const [historyYear, setHistoryYear] = useState('');
+  const [historyRegion, setHistoryRegion] = useState('');
+  const [historyClass, setHistoryClass] = useState('');
+  const [historyLimit, setHistoryLimit] = useState(100);
+  const [historySearch, setHistorySearch] = useState('');
   const regions = useMemo(() => [...new Set(records.map((record) => record.region))].sort(), [records]);
   const [region, setRegion] = useState('');
   const [localBoard, setLocalBoard] = useState('');
@@ -416,6 +473,47 @@ function AccessEnrollmentPanel({ data }) {
   const [varianceClass, setVarianceClass] = useState('');
   const [varianceVisibleLimit, setVarianceVisibleLimit] = useState(100);
   const issueUpdateQueue = useRef(new Map());
+  useEffect(() => {
+    let active = true;
+    loadEnrollmentDataset('historical').then((saved) => {
+      if (!active) return;
+      if (Array.isArray(saved) && saved.length) {
+        setHistoryRecords(saved);
+        setHistoryStatus(saved.length.toLocaleString() + ' historical quarter records loaded from this browser.');
+      } else setHistoryStatus('Upload the historical workbook to load 2022–23 to 2025–26.');
+    }).catch(() => { if (active) setHistoryStatus('Upload the historical workbook to load historical data.'); });
+    return () => { active = false; };
+  }, []);
+  const historicalRows = useMemo(() => {
+    const grouped = new Map();
+    historyRecords.forEach((record) => {
+      const key = [record.region,record.localBoard,record.recCode,record.classCode,record.year].join('::');
+      if (!grouped.has(key)) grouped.set(key,{key,region:record.region,localBoard:record.localBoard,recName:record.recName,recCode:record.recCode,classCode:record.classCode,className:record.className,year:record.year,q1:null,q2:null,q3:null,q4:null,adequateQ1:null,moderateQ1:null,lowQ1:null,nonQ1:null});
+      const item=grouped.get(key), q=record.quarter.toLowerCase();
+      if(['q1','q2','q3','q4'].includes(q)) {
+        item[q]=record.enrollment;
+        if(q==='q1'){item.adequateQ1=record.adequate;item.moderateQ1=record.moderate;item.lowQ1=record.low;item.nonQ1=record.nonAccess;}
+      }
+    });
+    return [...grouped.values()];
+  },[historyRecords]);
+  const historyYears=useMemo(()=>[...new Set(historyRecords.map(r=>r.year))].sort(),[historyRecords]);
+  const historyRegions=useMemo(()=>[...new Set(historyRecords.map(r=>r.region))].sort(),[historyRecords]);
+  const filteredHistory=useMemo(()=>{
+    const term=historySearch.trim().toLowerCase();
+    return historicalRows.filter(row=>(!historyYear||row.year===historyYear)&&(!historyRegion||row.region===historyRegion)&&(!historyClass||row.className===historyClass)&&(!term||(row.recName+' '+row.localBoard+' '+row.region).toLowerCase().includes(term)));
+  },[historicalRows,historyYear,historyRegion,historyClass,historySearch]);
+  async function importHistoricalWorkbook(file) {
+    if(!file)return;
+    setHistoryStatus('Reading '+file.name+'…');
+    try {
+      const parsed=await parseHistoricalEnrollmentWorkbook(file);
+      await saveEnrollmentDataset('historical',parsed);
+      setHistoryRecords(parsed);
+      setHistoryStatus(parsed.length.toLocaleString()+' historical quarter records imported from '+file.name+'. Saved in this browser.');
+      setHistoryLimit(100);
+    } catch(error) { setHistoryStatus(error.message||'Could not read this workbook. Please check its format.'); }
+  }
   const [issueNotes, setIssueNotes] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('ecd-resource-hub.access-issues') || '{}'); }
     catch { return {}; }
@@ -527,11 +625,20 @@ function AccessEnrollmentPanel({ data }) {
     <div className="panel-action-row"><p>2026 quarterly enrolment, regional and class totals, and adequate access. Differences from 2025 and between quarters are highlighted in red.</p><span className="access-source-tag">Source: {data?.source || 'classwise data 26.xlsx'}</span></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
       {data.unmatchedRECCount > 0 && <div className="access-directory-note"><b>{data.unmatchedRECCount} RECs in this workbook are not in the existing REC directory.</b><span>Their enrollment remains visible here. They cannot appear in Classroom Data selectors until the REC source list includes: {(data.unmatchedRECNames || []).join(', ')}.</span></div>}
+      <nav className="enrolment-section-tabs" aria-label="Enrolment management sections">
+        <button type="button" className={section==='overview'?'active':''} onClick={()=>setSection('overview')}>Enrolment Overview</button>
+        <button type="button" className={section==='rec-class'?'active':''} onClick={()=>setSection('rec-class')}>REC & Class Analysis</button>
+        <button type="button" className={section==='red-flags'?'active':''} onClick={()=>setSection('red-flags')}>Variance & Red Flags</button>
+        <button type="button" className={section==='follow-up'?'active':''} onClick={()=>setSection('follow-up')}>Investigation & Follow-up</button>
+      </nav>
+      {section==='overview' && <>
       <div className="access-targets"><div><span className="eyebrow">2026 ENROLMENT TARGETS</span><h2>Regional targets</h2><p>Targets appear where the workbook provides them. A dash means no separate target is listed.</p></div><div className="access-table-wrap"><table className="data-table access-target-table"><thead><tr><th>Region</th><th>Class / group</th><th>2026 target</th><th>2026 Q4 enrolment</th><th>Enrolment vs target</th></tr></thead><tbody>{regionalTargetRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.target === null || row.target === undefined ? '—' : displayCount(row.target)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.targetDifference)}>{fmtDiff(row.targetDifference)}</td></tr>)}</tbody></table></div></div>
       <div className="access-summary-heading"><div><span className="eyebrow">REGIONAL SUMMARY</span><h2>Separate class enrolment</h2></div></div>
       <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={summaryRegion} onChange={(event) => setSummaryRegion(event.target.value)}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><fieldset className="access-class-filter"><legend>Classes</legend>{classNames.map((name) => <label key={name}><input type="checkbox" checked={summaryClasses.includes(name)} onChange={() => setSummaryClasses((current) => current.includes(name) ? current.filter((value) => value !== name) : [...current, name])} /><span>{name}</span></label>)}</fieldset></div></div>
       <div className="access-table-wrap"><table className="data-table access-summary-table"><thead><tr><th>Region</th><th>Class / group</th><th>RECs</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Adequate Q1</th><th>Moderate Q1</th><th>Low Q1</th><th>Non-access Q1</th><th>Adequate access % Q1</th></tr></thead><tbody>{separateSummaryRows.map((row) => <tr key={row.region + '-' + row.group}><td>{row.region}</td><td>{row.group}</td><td>{row.recs.toLocaleString()}</td><td>{displayCount(row.enrollment2025)}</td><td>{displayCount(row.q1)}</td><td className={diffClass(row.q1Vs2025)}>{fmtDiff(row.q1Vs2025)}</td><td>{displayCount(row.q2)}</td><td className={diffClass(row.q2VsQ1)}>{fmtDiff(row.q2VsQ1)}</td><td>{displayCount(row.q3)}</td><td className={diffClass(row.q3VsQ2)}>{fmtDiff(row.q3VsQ2)}</td><td>{displayCount(row.q4)}</td><td className={diffClass(row.q4VsQ3)}>{fmtDiff(row.q4VsQ3)}</td><td className={diffClass(row.q4Vs2025)}>{fmtDiff(row.q4Vs2025)}</td><td>{displayCount(row.adequateQ1)}</td><td>{displayCount(row.moderateQ1)}</td><td>{displayCount(row.lowQ1)}</td><td>{displayCount(row.nonQ1)}</td><td>{row.q1 && row.adequateQ1 !== null && row.adequateQ1 !== undefined ? (Number(row.adequateQ1) / Number(row.q1) * 100).toFixed(1) + '%' : '—'}</td></tr>)}</tbody></table></div>
 
+      </>}
+      {section==='red-flags' && <>
       <section className="access-variance-section">
         <div className="access-detail-heading"><div><span className="eyebrow">ENROLMENT VARIANCE ANALYSIS</span><h2>REC and class red flags</h2><p>Flags are calculated from quarterly enrolment figures using a 20% decline threshold.</p></div><span>{filteredVarianceFlags.length.toLocaleString()} flags</span></div>
         <div className="access-variance-summary">
@@ -556,12 +663,31 @@ function AccessEnrollmentPanel({ data }) {
         {!filteredVarianceFlags.length && <div className="empty-state"><b>No red flags for the selected filters</b><span>Records without a comparable baseline are not assigned a percentage decline.</span></div>}
         <p className="access-variance-note">ENR25 is treated as the previous-year enrolment in the preceding class. Ibtida is excluded from this progression comparison. Quarterly peak declines and quarter-on-quarter declines are reported separately. The source workbook is not changed.</p>
       </section>
+      </>}
+      {section==='follow-up' && <>
       <section className="access-followup">
         <div className="access-detail-heading"><div><span className="eyebrow">FOLLOW-UP</span><h2>Reasons for enrolment differences</h2><p>Record a reason and assign a person to follow up. <span className="access-sync-status">{issueSyncStatus === 'shared' ? 'Saved for users of this app.' : issueSyncStatus === 'saving' || issueSyncStatus === 'loading' ? 'Saving…' : 'Saved on this device only; shared storage is unavailable.'}</span></p></div><span>{issueItems.length.toLocaleString()} differences</span></div>
         <div className="classroom-location-selects access-followup-filters"><label className="form-field">Region<select value={followupRegion} onChange={(event) => { setFollowupRegion(event.target.value); setIssueVisibleLimit(60); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Class / group<select value={followupGroup} onChange={(event) => { setFollowupGroup(event.target.value); setIssueVisibleLimit(60); }}><option value="">All classes and groups</option>{classesForFollowup.map((value) => <option key={value}>{value}</option>)}</select></label></div>
         {issueItems.length ? <div className="access-issue-list">{issueItems.slice(0, issueVisibleLimit).map((item) => <article className="access-issue-card" key={item.key}><div className="access-issue-heading"><span><b>{item.region}</b><small>{item.group}</small></span><strong className="access-difference-pill">{item.label}: {fmtDiff(item.value)}</strong></div><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes[item.key]?.reason || ''} onChange={(event) => updateIssue(item.key, 'reason', event.target.value)} placeholder="Describe the reason for this change" /></label><label className="form-field">Assigned user<input value={issueNotes[item.key]?.assignedUser || ''} onChange={(event) => updateIssue(item.key, 'assignedUser', event.target.value)} placeholder="Enter the responsible person’s name" /></label></article>)}</div> : <div className="empty-state"><b>No non-zero differences for these filters</b></div>}
         {issueItems.length > issueVisibleLimit && <><span className="access-followup-limit">Showing {issueVisibleLimit} of {issueItems.length.toLocaleString()} differences.</span><button type="button" className="show-more-access" onClick={() => setIssueVisibleLimit((limit) => limit + 60)}>Show 60 more differences</button></>}
       </section>
+      </>}
+      {section==='rec-class' && <>
+        <section className="access-history-section">
+          <div className="access-detail-heading"><div><span className="eyebrow">HISTORICAL ACCESS & ENROLMENT</span><h2>Quarterly trends · 2022–23 to 2025–26</h2><p>Import the historical workbook once in this browser. Its REC, class, year, quarter, and access records are saved locally for later visits.</p></div><span>{historyRecords.length.toLocaleString()} quarter records</span></div>
+          <div className="access-history-import"><label className="form-field">Import historical workbook (.xlsx)<input type="file" accept=".xlsx,.xls" onChange={(event)=>importHistoricalWorkbook(event.target.files?.[0])}/></label><span>{historyStatus}</span></div>
+          {historyRecords.length>0 && <>
+            <div className="classroom-location-selects access-variance-filters">
+              <label className="form-field">Academic year<select value={historyYear} onChange={e=>{setHistoryYear(e.target.value);setHistoryLimit(100);}}><option value="">All years</option>{historyYears.map(v=><option key={v}>{v}</option>)}</select></label>
+              <label className="form-field">Region<select value={historyRegion} onChange={e=>{setHistoryRegion(e.target.value);setHistoryLimit(100);}}><option value="">All regions</option>{historyRegions.map(v=><option key={v}>{v}</option>)}</select></label>
+              <label className="form-field">Class<select value={historyClass} onChange={e=>{setHistoryClass(e.target.value);setHistoryLimit(100);}}><option value="">All classes</option>{classNames.map(v=><option key={v}>{v}</option>)}</select></label>
+              <label className="form-field">Search REC / Local Board<input value={historySearch} onChange={e=>{setHistorySearch(e.target.value);setHistoryLimit(100);}} placeholder="Enter REC or board name"/></label>
+            </div>
+            <div className="access-history-summary"><b>{filteredHistory.length.toLocaleString()} REC/class/year combinations</b><span>Quarterly enrolment and Q1 access categories are shown.</span></div>
+            <div className="access-table-wrap"><table className="data-table access-history-table"><thead><tr><th>Year</th><th>Region</th><th>Local Board</th><th>REC</th><th>Class</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q1 Adequate</th><th>Q1 Moderate</th><th>Q1 Low</th><th>Q1 Non-access</th></tr></thead><tbody>{filteredHistory.slice(0,historyLimit).map(row=><tr key={row.key}><td>{row.year}</td><td>{row.region}</td><td>{row.localBoard}</td><td>{row.recName}</td><td>{row.className}</td><td>{displayCount(row.q1)}</td><td>{displayCount(row.q2)}</td><td>{displayCount(row.q3)}</td><td>{displayCount(row.q4)}</td><td>{displayCount(row.adequateQ1)}</td><td>{displayCount(row.moderateQ1)}</td><td>{displayCount(row.lowQ1)}</td><td>{displayCount(row.nonQ1)}</td></tr>)}</tbody></table></div>
+            {filteredHistory.length>historyLimit&&<button type="button" className="show-more-access" onClick={()=>setHistoryLimit(n=>n+100)}>Show 100 more records</button>}
+          </>}
+        </section>
       <div className="access-detail-heading"><div><span className="eyebrow">REC-WISE DATA</span><h2>Quarterly enrolment by class</h2></div><span>{filtered.length.toLocaleString()} matching records</span></div>
       <div className="classroom-filter-panel access-filters"><div className="classroom-location-selects"><label className="form-field">Region<select value={region} onChange={(event) => { setRegion(event.target.value); setLocalBoard(''); setRecName(''); setVisibleLimit(100); }}><option value="">All regions</option>{regions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">Local Board<select value={localBoard} onChange={(event) => { setLocalBoard(event.target.value); setRecName(''); setVisibleLimit(100); }}><option value="">All local boards</option>{boardOptions.map((value) => <option key={value}>{value}</option>)}</select></label><label className="form-field">REC<select value={recName} onChange={(event) => { setRecName(event.target.value); setVisibleLimit(100); }}><option value="">All RECs</option>{recOptions.map((value) => <option key={value.recName}>{value.recName}</option>)}</select></label><label className="form-field">Class<select value={classFilter} onChange={(event) => { setClassFilter(event.target.value); setVisibleLimit(100); }}><option value="">All classes</option>{classNames.map((name) => <option key={name}>{name}</option>)}</select></label><label className="form-field">Search REC<input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }} placeholder="REC or board name" /></label></div></div>
       <div className="access-table-wrap"><table className="data-table"><thead><tr><th>Region</th><th>Local Board</th><th>REC</th><th>Class</th><th>2025 baseline</th><th>2026 Q1</th><th>Q1 vs 2025</th><th>2026 Q2</th><th>Q2 vs Q1</th><th>2026 Q3</th><th>Q3 vs Q2</th><th>2026 Q4</th><th>Q4 vs Q3</th><th>Q4 vs 2025</th><th>Latest</th><th>Reasons / assigned user</th></tr></thead><tbody>{shown.map((record, index) => <tr key={record.recCode + '-' + record.classCode + '-' + index}><td>{record.region}</td><td>{record.localBoard}</td><td>{record.recName}{record.directoryMatch === false ? ' · not in REC directory' : ''}</td><td>{record.className}</td><td>{displayCount(record.enrollment2025)}</td><td>{displayCount(record.q1)}</td><td className={diffClass(record.q1Vs2025)}>{fmtDiff(record.q1Vs2025)}</td><td>{displayCount(record.q2)}</td><td className={diffClass(record.q2VsQ1)}>{fmtDiff(record.q2VsQ1)}</td><td>{displayCount(record.q3)}</td><td className={diffClass(record.q3VsQ2)}>{fmtDiff(record.q3VsQ2)}</td><td>{displayCount(record.q4)}</td><td className={diffClass(record.q4VsQ3)}>{fmtDiff(record.q4VsQ3)}</td><td className={diffClass(record.q4Vs2025)}>{fmtDiff(record.q4Vs2025)}</td><td>{displayCount(record.latestEnrollment)}{record.latestQuarter ? ' (' + record.latestQuarter + ')' : ''}</td><td><details className="rec-reason-editor"><summary>{issueNotes['rec::' + record.recCode + '::' + record.classCode]?.reason ? 'Edit reason' : 'Add reason'}</summary><label className="form-field">Issue or reason<textarea rows="2" value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.reason || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'reason', event.target.value)} placeholder="Enter the reason for this difference" /></label><label className="form-field">User name<input value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.assignedUser || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'assignedUser', event.target.value)} placeholder="Name" /></label><label className="form-field">Designation<input value={issueNotes['rec::' + record.recCode + '::' + record.classCode]?.designation || ''} onChange={(event) => updateIssue('rec::' + record.recCode + '::' + record.classCode, 'designation', event.target.value)} placeholder="Designation" /></label></details></td></tr>)}</tbody></table></div>
