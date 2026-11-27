@@ -21,11 +21,6 @@ async function writeReceipts(rows) {
   await writeFile(storePath, JSON.stringify(rows, null, 2), 'utf8');
 }
 
-async function writeAccessIssues(issues) {
-  await mkdir(storeDirectory, { recursive: true });
-  await writeFile(accessIssuesPath, JSON.stringify(issues, null, 2), 'utf8');
-}
-
 function removeEmailMetadata(receipt) {
   const { reminderEvents, ...record } = receipt;
   record.timeline = (Array.isArray(receipt.timeline) ? receipt.timeline : [])
@@ -70,36 +65,6 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   if (request.method === 'GET' && request.url === '/api/receipts') {
     response.end(JSON.stringify({ receipts: await readReceipts() }));
-    return;
-  }
-  if (request.method === 'POST' && request.url === '/api/access-issues') {
-    try {
-      const body = await readRequest(request);
-      if (!body.updates || typeof body.updates !== 'object' || Array.isArray(body.updates)) {
-        response.statusCode = 400;
-        response.end(JSON.stringify({ error: 'Issue updates must be a record.' }));
-        return;
-      }
-      const saveUpdates = accessIssueWriteQueue.then(async () => {
-        const issues = await readAccessIssues();
-        Object.entries(body.updates).forEach(([key, update]) => {
-          if (!key || !update || typeof update !== 'object' || Array.isArray(update)) return;
-          issues[key] = {
-            reason: String(update.reason || '').slice(0, 5000),
-            assignedUser: String(update.assignedUser || '').slice(0, 250),
-            designation: String(update.designation || '').slice(0, 250),
-            updatedAt: String(update.updatedAt || new Date().toISOString()),
-          };
-        });
-        await writeAccessIssues(issues);
-      });
-      accessIssueWriteQueue = saveUpdates.catch(() => {});
-      await saveUpdates;
-      response.end(JSON.stringify({ saved: true }));
-    } catch (error) {
-      response.statusCode = 400;
-      response.end(JSON.stringify({ error: error.message }));
-    }
     return;
   }
   if (request.method === 'POST' && request.url === '/api/receipts') {
