@@ -687,7 +687,8 @@ function AccessEnrollmentPanel({ data }) {
         {classGroups.map((group)=>{
           const className=group.label;
           const classRows=summaryRows.filter((row)=>row.group===className);
-          const displayRegions=summaryRegion?[summaryRegion]:['All Regions',...regions];
+          const regionalDisplayOrder=['Southern_01','Central_02','Upper Chitral_03','Lower Chitral_04','Gupis-Yasin_05','Ishkoman-Puniyal_06','Hunza_07','Gilgit_08'];
+          const displayRegions=summaryRegion?[summaryRegion]:['All Regions',...regionalDisplayOrder.filter((name)=>regions.includes(name))];
           const getValue=(regionName,field)=>{
             if(regionName!=='All Regions') return classRows.find((row)=>row.region===regionName)?.[field] ?? null;
             const values=classRows.map((row)=>row[field]).filter((value)=>value!==null&&value!==undefined&&value!=='');
@@ -704,6 +705,10 @@ function AccessEnrollmentPanel({ data }) {
           const getSingleClassTarget=(targetClass,regionName)=>{
             const supplied=suppliedClassTargets[targetClass];
             if(supplied) return regionName==='All Regions'?supplied.total:(supplied.regions[regionName]??null);
+            if(targetClass==='Ibtida'&&regionName==='All Regions'){
+              const values=(data?.regions||[]).map((item)=>item.ibtida).filter((value)=>value!==null&&value!==undefined&&value!=='').map(Number);
+              return values.length?values.reduce((total,value)=>total+value,0):null;
+            }
             const targetRow=(data?.regions||[]).find((item)=>item.region===regionName);
             return targetRow&&targetClass==='Ibtida'&&targetRow.ibtida!==null&&targetRow.ibtida!==undefined&&targetRow.ibtida!==''?Number(targetRow.ibtida):null;
           };
