@@ -45,9 +45,6 @@
 .rf-gap{display:grid;gap:2px;text-align:right;align-content:start}
 .rf-gap b{color:#b02a25;font:700 20px Manrope,sans-serif}
 .rf-gap span{color:#b02a25;font-size:12px;font-weight:700}
-.rf-reason summary{cursor:pointer;color:#315b49;font-size:12px;font-weight:700}
-.rf-reason{display:grid;gap:6px}
-.rf-reason[open]{padding:8px 0 0}
 .rf-more{width:100%;border:0;border-top:1px solid #e1e9e0;background:#f4faf6;color:#315d43;padding:11px;font-weight:700;cursor:pointer}
 .rf-more:hover{background:#e9f4ed}
 @media(max-width:560px){.rf-panel li{grid-template-columns:24px minmax(0,1fr)}.rf-gap{grid-column:2;text-align:left;display:flex;gap:8px;align-items:baseline}}
