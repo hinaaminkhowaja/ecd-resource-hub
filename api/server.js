@@ -187,7 +187,7 @@ async function handle(request, response) {
     }
   }
   if (url.pathname === '/api/receipts') {
-    const user = await requireUser(request,response);
+    const user = await requireAdmin(request,response);
     if (!user) return;
     if (request.method === 'GET') { send(response,200,{receipts:await readReceipts()}); return; }
     if (request.method === 'POST') {
