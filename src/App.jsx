@@ -11,6 +11,7 @@ import accessEnrollmentEncoded from './data/access-enrollment.json.gz.b64?raw';
 import EnrolmentVisual from './EnrolmentVisual.jsx';
 import { RecWiseView, HistoryView, CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
 import RedFlagsView from './RedFlagsView.jsx';
+import AdminUsersView from './AdminUsersView.jsx';
 import './management.css';
 import './receipts.css';
 
@@ -119,7 +120,7 @@ function downloadCalendarReminder(receipt, stageNumber, label, deadline) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function App() {
+function App({ user, onLogout }) {
   const [resources, setResources] = useState(() => readLocalList(RESOURCE_STORAGE_KEY));
   const [receipts, setReceipts] = useState(() => readLocalList(RECEIPT_STORAGE_KEY));
   const [requests, setRequests] = useState(() => readLocalList('ecd-resource-hub.requests'));
@@ -144,7 +145,8 @@ function App() {
     { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
     { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
     { id: 'redflags', title: 'Enrolment Red Flags', description: 'Review REC-level enrolment declines and record reasons.', icon: AlertTriangle },
-  ];
+    ...(user?.role === 'ADMIN' ? [{ id: 'users', title: 'User Accounts', description: 'Assign regional access to users by email address.', icon: UsersRound }] : []),
+  ].filter((item) => user?.role === 'ADMIN' || item.id === 'redflags');
   const currentPanel = panels.find((item) => item.id === panel);
 
   useEffect(() => {
@@ -268,7 +270,8 @@ function App() {
         <span className="brand-mark"><Sparkles size={20} /></span>
         <span><strong>ECED</strong><small>RESOURCE HUB</small></span>
       </button>
-      {panel !== 'home' && <button type="button" className="all-panels-button" onClick={() => setPanel('home')}>All panels</button>}
+      <div className="panel-account"><span>{user?.email}{user?.role !== 'ADMIN' && user?.region ? ' · ' + user.region.replace(/_\\d+$/,'') : ''}</span><button type="button" className="all-panels-button" onClick={onLogout}>Sign out</button></div>
+      {panel !== 'home' && user?.role === 'ADMIN' && <button type="button" className="all-panels-button" onClick={() => setPanel('home')}>All panels</button>}
     </header>
 
     <main className="panel-main">
@@ -310,7 +313,8 @@ function App() {
 
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
         {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData} />}
-        {panel === 'redflags' && <RedFlagsView records={accessEnrollmentData?.records || []} />}
+        {panel === 'redflags' && <RedFlagsView records={(accessEnrollmentData?.records || []).filter((record) => user?.role === 'ADMIN' || record.region === user?.region)} user={user} />}
+        {panel === 'users' && user?.role === 'ADMIN' && <AdminUsersView />}
 
         {panel === 'materials' && <section className="library-section panel-section">
           <div className="panel-action-row"><p>Manage the teaching and classroom materials available to RECs.</p><button className="add-resource-button" onClick={openAddResource}><Plus size={16} />Add material</button></div>
