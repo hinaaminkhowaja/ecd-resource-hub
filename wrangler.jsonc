@@ -6,7 +6,10 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ],
+    "not_found_handling": "single-page-application"
   },
   "d1_databases": [
     {
@@ -15,4 +18,4 @@
       "database_id": "REPLACE_WITH_D1_DATABASE_ID"
     }
   ]
-}
+}\n
