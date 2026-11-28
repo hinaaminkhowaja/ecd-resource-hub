@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
+import { Download, FileSpreadsheet, Printer } from 'lucide-react';
 import { CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
 import './red-flags.css';
 
@@ -62,7 +64,7 @@ export function buildQuarter(records, threshold) {
   return out;
 }
 
-export default function RedFlagsView({ records }) {
+export default function RedFlagsView({ records, user }) {
   const [view, setView] = useState('previous');
   const [region, setRegion] = useState('');
   const [localBoard, setLocalBoard] = useState('');
@@ -88,8 +90,8 @@ export default function RedFlagsView({ records }) {
     }));
   }
 
-  async function saveReason(key) {
-    const draft = { ...(reasons[key] || {}), ...(reasonDrafts[key] || {}) };
+  async function saveReason(key, rec, classes) {
+    const draft = { ...(reasons[key] || {}), ...(reasonDrafts[key] || {}), region:rec.region, recName:rec.recName, recCode:rec.recCode, localBoard:rec.localBoard || '', classes, view, name:(reasonDrafts[key] || {}).name || (reasons[key] || {}).name || '', designation:(reasonDrafts[key] || {}).designation || (reasons[key] || {}).designation || '' };
     setSaveMessage('Saving…');
     try {
       const response = await fetch('/api/red-flags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, reason: draft }) });
@@ -97,7 +99,7 @@ export default function RedFlagsView({ records }) {
       if (!response.ok) throw new Error(result.error || 'Could not save the reason.');
       setReasons((current) => ({ ...current, [key]: result.reason }));
       setReasonDrafts((current) => { const next = { ...current }; delete next[key]; return next; });
-      setSaveMessage('Reason saved on this Codespace.');
+      setSaveMessage('Reason saved successfully. It is now visible below and available in the downloads.');
     } catch (error) { setSaveMessage(error.message || 'Could not save the reason.'); }
   }
 
@@ -137,8 +139,17 @@ export default function RedFlagsView({ records }) {
   const recsAffected = Object.values(byRegion).reduce((sum, recs) => sum + recs.length, 0);
   const worst = regions.map((rg) => [rg, (byRegion[rg] || []).reduce((a, rec) => a + rec.totalDrop, 0)]).sort((a, b) => b[1] - a[1])[0];
   const noPrev = view === 'previous' && group === 'Ibtida';
+  const reasonRows = Object.entries(reasons).map(([key, value]) => ({ key, ...value, view: value.view || key.split('::')[0] })).sort((a,b)=>String(a.region||'').localeCompare(String(b.region||'')) || String(a.recName||'').localeCompare(String(b.recName||'')));
+  function downloadReasonsExcel() {
+    const rows = reasonRows.map((item) => ({ Region:item.region||'', 'Local Board':item.localBoard||'', REC:item.recName||item.recCode||'', 'REC Code':item.recCode||'', 'Assessment View':item.view==='previous'?'Previous class gaps':'Quarter gaps', Classes:Array.isArray(item.classes)?item.classes.join(', '):'', Reason:item.reason||'', 'Added by':item.name||'', Designation:item.designation||'', 'User email':item.submittedBy||'', 'Last updated':item.updatedAt?new Date(item.updatedAt).toLocaleString():'' }));
+    const sheet=XLSX.utils.json_to_sheet(rows.length?rows:[{Message:'No reasons have been saved yet.'}]);
+    sheet['!cols']=[{wch:22},{wch:26},{wch:32},{wch:12},{wch:22},{wch:24},{wch:60},{wch:24},{wch:24},{wch:32},{wch:22}];
+    const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'REC Reasons');
+    XLSX.writeFile(book,'ECED_Enrolment_Red_Flag_Reasons.xlsx');
+  }
 
   return <div className="rf">
+    <div className="rf-downloads"><div><b>Saved reasons: {reasonRows.length}</b><span>{user?.role === 'ADMIN' ? 'All regions' : user?.region?.replace(/_\\d+$/,'')}</span></div><button type="button" onClick={downloadReasonsExcel}><FileSpreadsheet size={16}/>Download Excel</button><button type="button" onClick={()=>window.print()}><Printer size={16}/>Download PDF</button></div>
     <div className="rf-views" role="group" aria-label="Red flag view">
       <button type="button" className={view === 'previous' ? 'active' : ''} onClick={() => setView('previous')}><b>Previous class gaps</b><span>{prevEntries.length.toLocaleString()} RECs flagged</span></button>
       <button type="button" className={view === 'quarter' ? 'active' : ''} onClick={() => setView('quarter')}><b>Quarter gaps</b><span>{quarterEntries.length.toLocaleString()} RECs flagged</span></button>
@@ -194,7 +205,7 @@ export default function RedFlagsView({ records }) {
                   {rec.variances.map((e) => {
                     const kept = e.prev > 0 ? Math.max(0, Math.min(100, (e.cur / e.prev) * 100)) : 0;
                     return <div className="rf-class-variance" key={e.key}>
-                      <div className="rf-class-heading"><b>{e.r.className}</b><span className="rf-variance-line">{e.line}</span></div>
+                      <div className="rf-class-heading"><strong className="rf-class-name">{e.r.className}</strong><span className="rf-variance-line">{e.line}</span></div>
                       <div className="rf-class-metrics"><strong>{lost(e.drop)}</strong><b>{lostPct(e.pct)}</b></div>
                       <span className="rf-bar" title={fmt(e.cur) + ' of ' + fmt(e.prev) + ' remain'}><span className="rf-bar-keep" style={{ width: kept + '%' }} /></span>
                       {e.chips.length > 0 && <div className="rf-chips">{e.chips.map((c, k) => <span key={k}>{c}</span>)}</div>}
@@ -217,7 +228,7 @@ export default function RedFlagsView({ records }) {
                     <label>Name<input value={(reasonDrafts[reasonKey] || savedReason || {}).name || ''} onChange={(event) => updateReasonDraft(reasonKey, 'name', event.target.value)} placeholder="Name of person adding the reason" /></label>
                     <label>Designation<input value={(reasonDrafts[reasonKey] || savedReason || {}).designation || ''} onChange={(event) => updateReasonDraft(reasonKey, 'designation', event.target.value)} placeholder="e.g. REC In-charge, LB Coordinator" /></label>
                   </div>
-                  <div className="rf-reason-actions"><button type="button" disabled={!((reasonDrafts[reasonKey] || savedReason || {}).reason || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).name || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).designation || '').trim()} onClick={() => saveReason(reasonKey)}>{savedReason ? 'Save updated reason' : 'Save reason'}</button></div>
+                  <div className="rf-reason-actions"><button type="button" disabled={!((reasonDrafts[reasonKey] || savedReason || {}).reason || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).name || '').trim() || !((reasonDrafts[reasonKey] || savedReason || {}).designation || '').trim()} onClick={() => saveReason(reasonKey, rec, rec.variances.map((entry) => entry.r.className))}>{savedReason ? 'Save updated reason' : 'Save reason'}</button></div>
                 </div>
               </div>
             </li>;
@@ -228,5 +239,6 @@ export default function RedFlagsView({ records }) {
     </div>
     <p className="ra-foot">RECs are ranked by their highest percentage decline (most severe first). All flagged class variances for a REC are grouped together; add one shared reason and contributor details beneath the REC. Reasons are saved in the Codespace project data folder.</p>
     {saveMessage && <p className="ra-foot" role="status">{saveMessage}</p>}
+    <section className="rf-print-report"><h1>ECED Resource Hub — Enrolment Red-Flag Reasons</h1><p>Saved reasons for {user?.role === 'ADMIN' ? 'all regions' : (user?.region || 'assigned region')}</p><table><thead><tr><th>Region</th><th>Local Board</th><th>REC</th><th>View</th><th>Class(es)</th><th>Reason</th><th>Name</th><th>Designation</th><th>Updated</th></tr></thead><tbody>{reasonRows.map((item)=><tr key={item.key}><td>{item.region||''}</td><td>{item.localBoard||''}</td><td>{item.recName||item.recCode||''}</td><td>{item.view==='previous'?'Previous class gaps':'Quarter gaps'}</td><td>{Array.isArray(item.classes)?item.classes.join(', '):''}</td><td>{item.reason||''}</td><td>{item.name||''}</td><td>{item.designation||''}</td><td>{item.updatedAt?new Date(item.updatedAt).toLocaleString():''}</td></tr>)}</tbody></table></section>
   </div>;
 }
