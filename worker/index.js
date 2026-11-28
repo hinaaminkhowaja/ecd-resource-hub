@@ -35,12 +35,28 @@ async function requireUser(request, env) {
   return user;
 }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
-async function saveSession(user, env) {
+async function ensureLoginActivityTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS login_activity (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL UNIQUE,
+    login_at TEXT NOT NULL,
+    logout_at TEXT,
+    ip_address TEXT,
+    user_agent TEXT
+  )`).run();
+}
+async function saveSession(user, env, request) {
+  await ensureLoginActivityTable(env);
   const token = [...crypto.getRandomValues(new Uint8Array(32))].map(b => b.toString(16).padStart(2, "0")).join("");
   const now = Date.now();
+  const sessionId = id();
+  const loginAt = new Date(now).toISOString();
   await env.DB.prepare("DELETE FROM sessions WHERE expires_at<=?").bind(now).run();
   await env.DB.prepare("INSERT INTO sessions(id,user_id,token_hash,expires_at,created_at) VALUES(?,?,?,?,?)")
-    .bind(id(), user.id, await digest(token), now + SESSION_DAYS * 86400000, now).run();
+    .bind(sessionId, user.id, await digest(token), now + SESSION_DAYS * 86400000, now).run();
+  await env.DB.prepare("INSERT INTO login_activity(id,user_id,session_id,login_at,ip_address,user_agent) VALUES(?,?,?,?,?,?)")
+    .bind(id(), user.id, sessionId, loginAt, request.headers.get("CF-Connecting-IP") || null, request.headers.get("User-Agent") || null).run();
   return token;
 }
 export async function handleApi(request, env) {
@@ -66,13 +82,21 @@ export async function handleApi(request, env) {
       }
     }
     if (!user) return json({ error: "This email address does not have an active account." }, 401);
-    const token = await saveSession(user, env);
+    const token = await saveSession(user, env, request);
     return json({ user }, 200, { "Set-Cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
 
   if (request.method === "POST" && path === "/api/auth/logout") {
     const token = cookie(request, COOKIE);
-    if (token) await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(token)).run();
+    if (token) {
+      await ensureLoginActivityTable(env);
+      const session = await env.DB.prepare("SELECT id FROM sessions WHERE token_hash=?").bind(await digest(token)).first();
+      if (session) {
+        await env.DB.prepare("UPDATE login_activity SET logout_at=? WHERE session_id=? AND logout_at IS NULL")
+          .bind(new Date().toISOString(), session.id).run();
+        await env.DB.prepare("DELETE FROM sessions WHERE id=?").bind(session.id).run();
+      }
+    }
     return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", 0) });
   }
 
@@ -85,6 +109,29 @@ export async function handleApi(request, env) {
     const user = await requireUser(request, env);
     if (!user) return json({ error: "Please sign in to continue." }, 401);
     const isAdmin = user.role === "ADMIN";
+
+    if (path === "/api/admin/login-activity") {
+      if (!isAdmin) return json({ error: "Admin access is required." }, 403);
+      if (request.method !== "GET") return json({ error: "Method not allowed." }, 405);
+      await ensureLoginActivityTable(env);
+      const { results: events } = await env.DB.prepare(`
+        SELECT la.id, u.email, u.role, u.region, la.login_at AS loginAt,
+          la.logout_at AS logoutAt, la.ip_address AS ipAddress, la.user_agent AS userAgent
+        FROM login_activity la JOIN users u ON u.id=la.user_id
+        ORDER BY la.login_at DESC LIMIT 500
+      `).all();
+      const { results: users } = await env.DB.prepare(`
+        SELECT u.id, u.email, u.role, u.region, u.active,
+          COUNT(la.id) AS totalLogins, MAX(la.login_at) AS lastLogin,
+          SUM(CASE WHEN la.logout_at IS NULL AND s.expires_at>? THEN 1 ELSE 0 END) AS activeSessions
+        FROM users u
+        LEFT JOIN login_activity la ON la.user_id=u.id
+        LEFT JOIN sessions s ON s.id=la.session_id
+        GROUP BY u.id, u.email, u.role, u.region, u.active
+        ORDER BY lastLogin DESC, u.email COLLATE NOCASE
+      `).bind(Date.now()).all();
+      return json({ events, users });
+    }
 
     if (path === "/api/admin/users") {
       if (!isAdmin) return json({ error: "Admin access is required." }, 403);
