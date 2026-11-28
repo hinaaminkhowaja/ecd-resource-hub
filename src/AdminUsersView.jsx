@@ -8,7 +8,6 @@ export default function AdminUsersView() {
   const [users,setUsers]=useState([]);
   const [email,setEmail]=useState('');
   const [region,setRegion]=useState('All');
-  const [password,setPassword]=useState('');
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
   async function load() {
@@ -21,10 +20,10 @@ export default function AdminUsersView() {
   async function create(event) {
     event.preventDefault();setBusy(true);setMessage('');
     try {
-      const response=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,region,password})});
+      const response=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,region})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||'Could not create account.');
-      setEmail('');setPassword('');setMessage('Regional account created. Share the initial password securely with the user.');
+      setEmail('');setMessage('Regional account created. The user can sign in using this assigned email address.');
       await load();
     } catch(e){setMessage(e.message);}
     finally{setBusy(false);}
@@ -43,7 +42,7 @@ export default function AdminUsersView() {
     <form className="admin-user-form" onSubmit={create}>
       <label>User email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="regional.user@example.com"/></label>
       <label>Assigned region<select value={region} onChange={e=>setRegion(e.target.value)}><option value="All">All regions</option>{regions.map(r=><option key={r} value={r}>{r.replace(/_\d+$/,'')}</option>)}</select></label>
-      <label>Initial password<input type="password" minLength={12} value={password} onChange={e=>setPassword(e.target.value)} required placeholder="At least 12 characters"/></label>
+      
       <button disabled={busy}><Plus size={16}/>{busy?'Creating…':'Create account'}</button>
     </form>
     {message&&<p className="admin-message" role="status">{message}</p>}
