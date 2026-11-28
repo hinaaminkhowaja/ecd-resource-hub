@@ -18,10 +18,10 @@ async function isPortOpen() {
 
 async function isReceiptServiceReady() {
   try {
-    const response = await fetch(`http://${apiHost}:${apiPort}/api/receipts`, { signal: AbortSignal.timeout(1200) });
+    const response = await fetch(`http://${apiHost}:${apiPort}/api/health`, { signal: AbortSignal.timeout(1200) });
     if (!response.ok) return false;
     const data = await response.json();
-    return Array.isArray(data.receipts);
+    return data.ok === true;
   } catch {
     return false;
   }
