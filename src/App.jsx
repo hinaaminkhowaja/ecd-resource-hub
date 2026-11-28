@@ -126,7 +126,7 @@ function App({ user, onLogout }) {
   const [requests, setRequests] = useState(() => readLocalList('ecd-resource-hub.requests'));
   const [ibtidaClassroomRecords, setIbtidaClassroomRecords] = useState([]);
   const [accessEnrollmentData, setAccessEnrollmentData] = useState(null);
-  const [panel, setPanel] = useState('home');
+  const [panel, setPanel] = useState(user?.role === 'ADMIN' ? 'home' : 'access');
   const [active, setActive] = useState('All resources');
   const [query, setQuery] = useState('');
   const [format, setFormat] = useState('All formats');
@@ -144,9 +144,8 @@ function App({ user, onLogout }) {
     { id: 'materials', title: 'Materials Bank', description: 'Browse curriculum, activity books, plans, kits, and furniture.', icon: LibraryBig },
     { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
     { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
-    { id: 'redflags', title: 'Enrolment Red Flags', description: 'Review REC-level enrolment declines and record reasons.', icon: AlertTriangle },
     ...(user?.role === 'ADMIN' ? [{ id: 'users', title: 'User Accounts', description: 'Assign regional access to users by email address.', icon: UsersRound }] : []),
-  ].filter((item) => user?.role === 'ADMIN' || item.id === 'redflags');
+  ].filter((item) => user?.role === 'ADMIN' || item.id === 'access');
   const currentPanel = panels.find((item) => item.id === panel);
 
   useEffect(() => {
@@ -266,7 +265,7 @@ function App({ user, onLogout }) {
 
   return <div className="app-shell panel-app">
     <header className="panel-topbar">
-      <button type="button" className="brand panel-brand" onClick={() => setPanel('home')}>
+      <button type="button" className="brand panel-brand" onClick={() => setPanel(user?.role === 'ADMIN' ? 'home' : 'access')}>
         <span className="brand-mark"><Sparkles size={20} /></span>
         <span><strong>ECED</strong><small>RESOURCE HUB</small></span>
       </button>
@@ -305,15 +304,14 @@ function App({ user, onLogout }) {
         </aside>
         <div className="panel-content"><>
         <section className="panel-page-heading">
-          <button type="button" className="back-to-panels" onClick={() => setPanel('home')}>← All panels</button>
+          {user?.role === 'ADMIN' && <button type="button" className="back-to-panels" onClick={() => setPanel('home')}>← All panels</button>}
           <div className="eyebrow">ECED RESOURCE HUB</div>
           <h1>{currentPanel?.title}</h1>
           <p>{currentPanel?.description}</p>
         </section>
 
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
-        {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData} />}
-        {panel === 'redflags' && <RedFlagsView records={(accessEnrollmentData?.records || []).filter((record) => user?.role === 'ADMIN' || (user?.region === 'All' || record.region === user?.region))} user={user} />}
+        {panel === 'access' && <><AccessEnrollmentPanel data={accessEnrollmentData ? { ...accessEnrollmentData, records: accessEnrollmentData.records.filter((record) => user?.role === 'ADMIN' || user?.region === 'All' || record.region === user?.region) } : accessEnrollmentData} /><section className="panel-section"><div className="panel-page-heading"><div className="eyebrow">ENROLMENT MANAGEMENT</div><h2>Enrolment Red Flags</h2><p>Review REC-level enrolment declines and record reasons for follow-up.</p></div><RedFlagsView records={(accessEnrollmentData?.records || []).filter((record) => user?.role === 'ADMIN' || user?.region === 'All' || record.region === user?.region)} user={user} /></section></>}
         {panel === 'users' && user?.role === 'ADMIN' && <AdminUsersView />}
 
         {panel === 'materials' && <section className="library-section panel-section">
