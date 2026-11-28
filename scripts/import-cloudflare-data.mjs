@@ -35,7 +35,12 @@ for (const user of users) {
 for (const receipt of receipts) {
   if (!receipt?.id) continue;
   const { reminderEvents, ...record } = receipt;
-  record.timeline = (Array.isArray(receipt.timeline) ? receipt.timeline : []).filter(event => event.kind !== "reminder");
+  record.timeline = (Array.isArray(receipt.timeline) ? receipt.timeline : [])
+    .filter(event => event.kind !== "reminder")
+    .map(event => {
+      const { senderEmail, receiverEmail, notifyEmails, emailedTo, emailStatus, emailError, ...safeEvent } = event;
+      return safeEvent;
+    });
   statements.push("INSERT OR REPLACE INTO receipts(id,record_json,updated_at) VALUES(" +
     [String(record.id), JSON.stringify(record), record.updatedAt || new Date().toISOString()].map(sql).join(",") + ");");
 }
