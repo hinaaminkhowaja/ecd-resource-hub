@@ -24,7 +24,7 @@ export default function AdminUsersView() {
       const response=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,region,password})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||'Could not create account.');
-      setEmail('');setPassword('');setMessage('Regional account created. Share the temporary password securely with the user.');
+      setEmail('');setPassword('');setMessage('Regional account created. Share the initial password securely with the user.');
       await load();
     } catch(e){setMessage(e.message);}
     finally{setBusy(false);}
