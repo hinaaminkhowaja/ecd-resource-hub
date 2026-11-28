@@ -1,4 +1,4 @@
-import { handleApi } from "../../../worker/index.js";
+import { handleApi } from "../../worker/index.js";
 
 export async function onRequest(context) {
   try {
