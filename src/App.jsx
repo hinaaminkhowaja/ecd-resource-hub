@@ -638,7 +638,7 @@ function AccessEnrollmentPanel({ data }) {
   const shown = filtered.slice(0, visibleLimit);
   const fmtDiff = (value) => value === null || value === undefined ? '—' : (value > 0 ? '+' : '') + Number(value).toLocaleString();
   const fmtVariancePct = (value, baseline) => value === null || value === undefined ? '—' : fmtDiff(value) + (baseline > 0 ? ' (' + (Number(value) / Number(baseline) * 100).toFixed(1) + '%)' : '');
-  const diffClass = (value) => value === null || value === undefined || Number(value) === 0 ? '' : Number(value) < 0 ? 'access-difference-cell' : 'access-increase-cell';
+  const diffClass = () => '';
   return <section className="panel-section access-enrollment-panel">
     <div className="panel-action-row"><p>2025–26 quarterly enrolment, regional and class totals, targets, and variances. Negative differences are highlighted in red.</p></div>
     {!data ? <div className="empty-state"><UsersRound size={24} /><b>Loading access data…</b></div> : <>
