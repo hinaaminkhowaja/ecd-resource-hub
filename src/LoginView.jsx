@@ -22,9 +22,9 @@ export default function LoginView({ onLogin }) {
       <div className="auth-mark">ECED</div>
       <p className="auth-eyebrow">RESOURCE HUB</p>
       <h1>Sign in</h1>
-      <p className="auth-copy">Use the email address and password assigned by your administrator.</p>
+      <p className="auth-copy">Regional users can sign in with their assigned email address. Administrators must enter their password.</p>
       <label>Email address<span className="auth-input"><Mail size={17}/><input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required placeholder="name@example.com"/></span></label>
-      <label>Password<span className="auth-input"><LockKeyhole size={17}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required placeholder="Enter your password"/></span></label>
+      <label>Administrator password <small>(administrators only)</small><span className="auth-input"><LockKeyhole size={17}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" placeholder="Leave blank for regional access"/></span></label>
       {error && <p className="auth-error" role="alert">{error}</p>}
       <button className="auth-submit" disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
       <p className="auth-help">If you do not have an account, contact your administrator.</p>
