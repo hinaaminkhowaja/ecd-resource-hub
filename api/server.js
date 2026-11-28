@@ -122,7 +122,7 @@ async function handle(request, response) {
       const password = String(body.password || '');
       const users = await readJsonFile(usersPath, []);
       const user = users.find((item) => item.email === email && item.active !== false);
-      if (!user || !verifyPassword(password, user)) { send(response, 401, { error: 'Email or password is incorrect.' }); return; }
+      if (!user || (user.role === 'ADMIN' && !verifyPassword(password, user))) { send(response, 401, { error: 'Email or password is incorrect.' }); return; }
       await createSession(user, response);
       send(response, 200, { user:{ id:user.id, email:user.email, role:user.role, region:user.region || null } });
     } catch (error) { send(response, 400, { error:error.message }); }
@@ -155,13 +155,10 @@ async function handle(request, response) {
         const body = await readRequest(request);
         const email = String(body.email || '').trim().toLowerCase();
         const region = String(body.region || '').trim();
-        const password = String(body.password || '');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { send(response,400,{error:'Enter a valid email address.'}); return; }
         if (!region) { send(response,400,{error:'Select a region.'}); return; }
-        if (password.length < 12) { send(response,400,{error:'Temporary password must be at least 12 characters.'}); return; }
         if (users.some((item) => item.email === email)) { send(response,409,{error:'This email already has an account.'}); return; }
-        const salt = randomBytes(16).toString('hex');
-        const user = { id:randomBytes(12).toString('hex'), email, region, role:'REGION', active:true, salt, passwordHash:passwordHash(password,salt), createdAt:new Date().toISOString() };
+        const user = { id:randomBytes(12).toString('hex'), email, region, role:'REGION', active:true, createdAt:new Date().toISOString() };
         users.push(user);
         await writeJsonFile(usersPath, users);
         send(response,201,{user:{id:user.id,email:user.email,region:user.region,active:user.active,createdAt:user.createdAt}});
@@ -175,11 +172,6 @@ async function handle(request, response) {
         if (!user) { send(response,404,{error:'User not found.'}); return; }
         if (body.region) user.region = String(body.region).trim();
         if (typeof body.active === 'boolean') user.active = body.active;
-        if (body.password) {
-          if (String(body.password).length < 12) { send(response,400,{error:'Password must be at least 12 characters.'}); return; }
-          user.salt = randomBytes(16).toString('hex');
-          user.passwordHash = passwordHash(String(body.password), user.salt);
-        }
         await writeJsonFile(usersPath, users);
         send(response,200,{ok:true});
       } catch (error) { send(response,400,{error:error.message}); }
