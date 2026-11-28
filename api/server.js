@@ -1,7 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -20,7 +20,7 @@ async function writeJsonFile(file, value) {
   await mkdir(storeDirectory, { recursive: true });
   const temporary = file + '.tmp';
   await writeFile(temporary, JSON.stringify(value, null, 2), 'utf8');
-  await writeFile(file, await readFile(temporary));
+  await rename(temporary, file);
 }
 function send(response, status, data) {
   response.statusCode = status;
@@ -186,6 +186,8 @@ async function handle(request, response) {
     }
   }
   if (url.pathname === '/api/receipts') {
+    const user = await requireUser(request,response);
+    if (!user) return;
     if (request.method === 'GET') { send(response,200,{receipts:await readReceipts()}); return; }
     if (request.method === 'POST') {
       try { const result = await saveReceipt((await readRequest(request)).receipt); send(response,result.error?400:200,result); }
