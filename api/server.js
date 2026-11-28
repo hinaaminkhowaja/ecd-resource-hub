@@ -114,6 +114,7 @@ async function handle(request, response) {
   response.setHeader('Cache-Control', 'no-store');
   const url = new URL(request.url, 'http://localhost');
 
+  if (request.method === 'GET' && url.pathname === '/api/health') { send(response,200,{ok:true}); return; }
   if (request.method === 'POST' && url.pathname === '/api/auth/login') {
     try {
       const body = await readRequest(request);
