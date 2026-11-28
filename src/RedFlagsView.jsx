@@ -76,9 +76,29 @@ export default function RedFlagsView({ records, user }) {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/red-flags').then((response) => response.ok ? response.json() : null)
-      .then((data) => { if (active && data?.reasons) setReasons(data.reasons); })
-      .catch(() => { if (active) setSaveMessage('Local data service is not running. Start the app with npm run dev.'); });
+    async function loadAndMigrateReasons() {
+      const response = await fetch('/api/red-flags');
+      if (!response.ok) throw new Error('Could not load saved reasons. Please sign in again.');
+      const data = await response.json();
+      let saved = data.reasons || {};
+      try {
+        const legacy = JSON.parse(window.localStorage.getItem('ecd-resource-hub.red-flag-reasons') || '{}');
+        const remaining = { ...legacy };
+        for (const [key, oldReason] of Object.entries(legacy)) {
+          const parts = key.split('::');
+          const recCode = parts[1];
+          const rec = records.find((item) => String(item.recCode || item.recName || '').split('|')[0] === String(recCode));
+          if (!rec || (user?.role !== 'ADMIN' && rec.region !== user?.region)) continue;
+          const reason = { ...oldReason, region:rec.region, recName:rec.recName, recCode, localBoard:rec.localBoard || '', view:parts[0], classes:[rec.className].filter(Boolean) };
+          const migrated = await fetch('/api/red-flags', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key,reason}) });
+          if (migrated.ok) { const result=await migrated.json(); saved[key]=result.reason; delete remaining[key]; }
+        }
+        if (Object.keys(remaining).length) window.localStorage.setItem('ecd-resource-hub.red-flag-reasons',JSON.stringify(remaining));
+        else window.localStorage.removeItem('ecd-resource-hub.red-flag-reasons');
+      } catch { /* Keep legacy browser data if migration cannot complete. */ }
+      if (active) setReasons(saved);
+    }
+    loadAndMigrateReasons().catch((error) => { if (active) setSaveMessage(error.message || 'Could not load saved reasons.'); });
     return () => { active = false; };
   }, []);
 
