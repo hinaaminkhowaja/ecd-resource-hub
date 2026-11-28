@@ -10,7 +10,8 @@
     "setup-admin": "node scripts/setup-admin.js",
     "cf:dev": "npm run build && wrangler dev",
     "cf:deploy": "npm run build && wrangler deploy",
-    "cf:typegen": "wrangler types"
+    "cf:typegen": "wrangler types",
+    "cf:import": "node scripts/import-cloudflare-data.mjs"
   },
   "dependencies": {
     "react": "latest",
@@ -23,4 +24,4 @@
     "vite": "latest",
     "wrangler": "^4.0.0"
   }
-}
+}\n
