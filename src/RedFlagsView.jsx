@@ -149,7 +149,7 @@ export default function RedFlagsView({ records, user }) {
   }
 
   return <div className="rf">
-    <div className="rf-downloads"><div><b>Saved reasons: {reasonRows.length}</b><span>{user?.role === 'ADMIN' ? 'All regions' : user?.region?.replace(/_\\d+$/,'')}</span></div><button type="button" onClick={downloadReasonsExcel}><FileSpreadsheet size={16}/>Download Excel</button><button type="button" onClick={()=>window.print()}><Printer size={16}/>Download PDF</button></div>
+    <div className="rf-downloads"><div><b>Saved reasons: {reasonRows.length}</b><span>{user?.role === 'ADMIN' ? 'All regions' : user?.region?.replace(/_\d+$/,'')}</span></div><button type="button" onClick={downloadReasonsExcel}><FileSpreadsheet size={16}/>Download Excel</button><button type="button" onClick={()=>window.print()}><Printer size={16}/>Download PDF</button></div>
     <div className="rf-views" role="group" aria-label="Red flag view">
       <button type="button" className={view === 'previous' ? 'active' : ''} onClick={() => setView('previous')}><b>Previous class gaps</b><span>{prevEntries.length.toLocaleString()} RECs flagged</span></button>
       <button type="button" className={view === 'quarter' ? 'active' : ''} onClick={() => setView('quarter')}><b>Quarter gaps</b><span>{quarterEntries.length.toLocaleString()} RECs flagged</span></button>
