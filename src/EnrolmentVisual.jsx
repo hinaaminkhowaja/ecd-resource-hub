@@ -29,9 +29,10 @@ export default function EnrolmentVisual({ regionNames, getValue, getTarget, clas
     return { name, label: SHORT[name] || name, target, q, ach, base, pGap, pPct: pGap !== null && base > 0 ? (pGap / base) * 100 : null };
   });
   const total = (() => {
-    const target = getTarget('All Regions');
-    const q = QS.map((f) => getValue('All Regions', f));
-    const base = previousClass ? getValue('All Regions', 'enrollment2025') : null;
+    const scopedRegion = regionNames.length === 1 && regionNames[0] !== 'All Regions' ? regionNames[0] : 'All Regions';
+    const target = getTarget(scopedRegion);
+    const q = QS.map((f) => getValue(scopedRegion, f));
+    const base = previousClass ? getValue(scopedRegion, 'enrollment2025') : null;
     const pGap = q[3] !== null && base !== null && base !== undefined ? q[3] - base : null;
     return { target, q, base, pGap, pPct: pGap !== null && base > 0 ? (pGap / base) * 100 : null, ach: q.map((v) => (v !== null && target > 0 ? (v / target) * 100 : null)), gap: q[3] !== null && target !== null ? q[3] - target : null };
   })();
