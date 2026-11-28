@@ -270,7 +270,7 @@ function App({ user, onLogout }) {
         <span className="brand-mark"><Sparkles size={20} /></span>
         <span><strong>ECED</strong><small>RESOURCE HUB</small></span>
       </button>
-      <div className="panel-account"><span>{user?.email}{user?.role !== 'ADMIN' && user?.region ? ' · ' + user.region.replace(/_\\d+$/,'') : ''}</span><button type="button" className="all-panels-button" onClick={onLogout}>Sign out</button></div>
+      <div className="panel-account"><span>{user?.email}{user?.role !== 'ADMIN' && user?.region ? ' · ' + user.region.replace(/_\d+$/,'') : ''}</span><button type="button" className="all-panels-button" onClick={onLogout}>Sign out</button></div>
       {panel !== 'home' && user?.role === 'ADMIN' && <button type="button" className="all-panels-button" onClick={() => setPanel('home')}>All panels</button>}
     </header>
 
