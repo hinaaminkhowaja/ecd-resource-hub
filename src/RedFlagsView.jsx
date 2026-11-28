@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Download, FileSpreadsheet, Printer } from 'lucide-react';
+import { FileSpreadsheet, Printer } from 'lucide-react';
 import { CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
 import './red-flags.css';
 
@@ -73,7 +73,6 @@ export default function RedFlagsView({ records, user }) {
   const [reasons, setReasons] = useState({});
   const [reasonDrafts, setReasonDrafts] = useState({});
   const [saveMessage, setSaveMessage] = useState('');
-  const [open, setOpen] = useState({});
 
   useEffect(() => {
     let active = true;
