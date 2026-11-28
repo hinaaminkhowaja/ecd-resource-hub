@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import {
   ArrowDownToLine, BookOpen, Boxes, CalendarPlus, ChevronDown, CircleHelp,
   AlertTriangle, FileText, FolderOpen, LibraryBig, Pencil, Plus, Printer, Search,
-  Settings2, Shapes, Sofa, Sparkles, Trash2, UsersRound, X,
+  Settings2, Shapes, Sofa, Sparkles, Trash2, UsersRound, X, Activity,
 } from 'lucide-react';
 import recDirectory from './data/recs.json';
 import ibtidaClassroomsEncoded from './data/ibtida-classrooms.json.gz.b64?raw';
@@ -12,6 +12,7 @@ import EnrolmentVisual from './EnrolmentVisual.jsx';
 import { RecWiseView, HistoryView, CLASS_GROUPS, classMatches } from './RecAnalysisViews.jsx';
 import RedFlagsView from './RedFlagsView.jsx';
 import AdminUsersView from './AdminUsersView.jsx';
+import LoginActivityView from './LoginActivityView.jsx';
 import './management.css';
 import './receipts.css';
 
@@ -144,7 +145,10 @@ function App({ user, onLogout }) {
     { id: 'materials', title: 'Materials Bank', description: 'Browse curriculum, activity books, plans, kits, and furniture.', icon: LibraryBig },
     { id: 'requests', title: 'Request Materials', description: 'Create and track requirement tickets for needed resources.', icon: Boxes },
     { id: 'receipts', title: 'Delivery Receipts', description: 'Record dispatches and acknowledgements through all four stages.', icon: FileText },
-    ...(user?.role === 'ADMIN' ? [{ id: 'users', title: 'User Accounts', description: 'Assign regional access to users by email address.', icon: UsersRound }] : []),
+    ...(user?.role === 'ADMIN' ? [
+      { id: 'users', title: 'User Accounts', description: 'Assign regional access to users by email address.', icon: UsersRound },
+      { id: 'login-activity', title: 'Login Activity', description: 'Review user sign-ins, last login times, and access history.', icon: Activity },
+    ] : []),
   ].filter((item) => user?.role === 'ADMIN' || item.id === 'access');
   const currentPanel = panels.find((item) => item.id === panel);
 
@@ -313,6 +317,7 @@ function App({ user, onLogout }) {
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
         {panel === 'access' && <AccessEnrollmentPanel assignedRegion={user?.role === 'ADMIN' || user?.region === 'All' ? '' : user?.region || ''} data={accessEnrollmentData ? { ...accessEnrollmentData, records: accessEnrollmentData.records.filter((record) => user?.role === 'ADMIN' || user?.region === 'All' || record.region === user?.region), regions: user?.role === 'ADMIN' || user?.region === 'All' ? accessEnrollmentData.regions : accessEnrollmentData.regions.filter((item) => item.region === user?.region) } : accessEnrollmentData} />}
         {panel === 'users' && user?.role === 'ADMIN' && <AdminUsersView />}
+        {panel === 'login-activity' && user?.role === 'ADMIN' && <LoginActivityView />}
 
         {panel === 'materials' && <section className="library-section panel-section">
           <div className="panel-action-row"><p>Manage the teaching and classroom materials available to RECs.</p><button className="add-resource-button" onClick={openAddResource}><Plus size={16} />Add material</button></div>
