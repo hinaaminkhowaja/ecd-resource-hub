@@ -43,3 +43,18 @@
 .ra-stack span{display:block;height:100%}
 .ra-table .rec-reason-editor{text-align:left;min-width:150px;white-space:normal}
 .ra-table .rec-reason-editor summary{cursor:pointer;color:#315b49;font-weight:700;font-size:12px}
+
+/* Keep REC and class analysis tables within the available page width. */
+.ra-wrap{overflow-x:hidden;max-width:100%}
+.ra-table{width:100%;min-width:0;table-layout:fixed;font-size:11px}
+.ra-table thead th{padding:8px 4px;font-size:10px;white-space:normal;overflow-wrap:anywhere;text-align:center}
+.ra-table thead th:first-child{width:20%;text-align:left}
+.ra-table thead th:nth-child(2){width:8%;text-align:center}
+.ra-table tbody th,.ra-table tbody td{padding:7px 4px;font-size:10px;white-space:normal;overflow-wrap:anywhere;text-align:center}
+.ra-table tbody th{min-width:0;width:20%;text-align:left;position:static}
+.ra-table tbody td:nth-child(2){text-align:center}
+.ra-table tbody th b{overflow-wrap:anywhere}
+.ra-table tbody th small{font-size:9px;overflow-wrap:anywhere}
+.ra-table .ra-stack{width:100%;min-width:0}
+.ra-table svg{max-width:100%;height:auto}
+@media(max-width:760px){.ra-table{font-size:9px}.ra-table thead th,.ra-table tbody th,.ra-table tbody td{padding:5px 2px;font-size:9px}.ra-table thead th:first-child,.ra-table tbody th{width:18%}.ra-table thead th:nth-child(2){width:9%}}
