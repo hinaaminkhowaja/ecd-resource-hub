@@ -311,7 +311,7 @@ function App({ user, onLogout }) {
         </section>
 
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
-        {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData ? { ...accessEnrollmentData, records: accessEnrollmentData.records.filter((record) => user?.role === 'ADMIN' || user?.region === 'All' || record.region === user?.region) } : accessEnrollmentData} />}
+        {panel === 'access' && <AccessEnrollmentPanel assignedRegion={user?.role === 'ADMIN' || user?.region === 'All' ? '' : user?.region || ''} data={accessEnrollmentData ? { ...accessEnrollmentData, records: accessEnrollmentData.records.filter((record) => user?.role === 'ADMIN' || user?.region === 'All' || record.region === user?.region), regions: user?.role === 'ADMIN' || user?.region === 'All' ? accessEnrollmentData.regions : accessEnrollmentData.regions.filter((item) => item.region === user?.region) } : accessEnrollmentData} />}
         {panel === 'users' && user?.role === 'ADMIN' && <AdminUsersView />}
 
         {panel === 'materials' && <section className="library-section panel-section">
@@ -461,7 +461,7 @@ function buildEnrollmentVarianceFlags(records, threshold = 20) {
   return flags;
 }
 
-function AccessEnrollmentPanel({ data }) {
+function AccessEnrollmentPanel({ data, assignedRegion = '' }) {
   const records = data?.records || [];
   const [section, setSection] = useState('overview');
   const [historyRecords, setHistoryRecords] = useState([]);
@@ -476,7 +476,7 @@ function AccessEnrollmentPanel({ data }) {
   const [localBoard, setLocalBoard] = useState('');
   const [recName, setRecName] = useState('');
   const [classFilter, setClassFilter] = useState('');
-  const [summaryRegion, setSummaryRegion] = useState('');
+  const [summaryRegion, setSummaryRegion] = useState(assignedRegion);
   const [overviewGroup, setOverviewGroup] = useState('');
   const [summaryClasses, setSummaryClasses] = useState(['Ibtida', 'Nursery', 'KG I', 'KG II']);
   const [query, setQuery] = useState('');
@@ -660,7 +660,7 @@ function AccessEnrollmentPanel({ data }) {
           const className=group.label;
           const classRows=summaryRows.filter((row)=>row.group===className);
           const regionalDisplayOrder=['Southern_01','Central_02','Upper Chitral_03','Lower Chitral_04','Gupis-Yasin_05','Ishkoman-Puniyal_06','Hunza_07','Gilgit_08'];
-          const displayRegions=summaryRegion?[summaryRegion]:['All Regions',...regionalDisplayOrder.filter((name)=>regions.includes(name))];
+          const displayRegions=assignedRegion?[assignedRegion]:(summaryRegion?[summaryRegion]:['All Regions',...regionalDisplayOrder.filter((name)=>regions.includes(name))]);
           const getValue=(regionName,field)=>{
             if(regionName!=='All Regions') return classRows.find((row)=>row.region===regionName)?.[field] ?? null;
             const values=classRows.map((row)=>row[field]).filter((value)=>value!==null&&value!==undefined&&value!=='');
