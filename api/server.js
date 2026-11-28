@@ -2,7 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const storeDirectory = path.join(root, 'data');
@@ -27,12 +27,6 @@ function send(response, status, data) {
   response.end(JSON.stringify(data));
 }
 function hashToken(token) { return createHash('sha256').update(token).digest('hex'); }
-function passwordHash(password, salt) { return scryptSync(password, salt, 64).toString('hex'); }
-function verifyPassword(password, user) {
-  const actual = Buffer.from(passwordHash(password, user.salt), 'hex');
-  const expected = Buffer.from(user.passwordHash, 'hex');
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
 function cookieValue(request, name) {
   const cookies = String(request.headers.cookie || '').split(';');
   const item = cookies.map((part) => part.trim()).find((part) => part.startsWith(name + '='));
@@ -119,10 +113,9 @@ async function handle(request, response) {
     try {
       const body = await readRequest(request);
       const email = String(body.email || '').trim().toLowerCase();
-      const password = String(body.password || '');
       const users = await readJsonFile(usersPath, []);
       const user = users.find((item) => item.email === email && item.active !== false);
-      if (!user || (user.role === 'ADMIN' && !verifyPassword(password, user))) { send(response, 401, { error: 'Email or password is incorrect.' }); return; }
+      if (!user) { send(response, 401, { error: 'This email address does not have an active account.' }); return; }
       await createSession(user, response);
       send(response, 200, { user:{ id:user.id, email:user.email, role:user.role, region:user.region || null } });
     } catch (error) { send(response, 400, { error:error.message }); }
