@@ -40,40 +40,19 @@ function Spark({ values }) {
   return <svg viewBox="0 0 80 28" width="80" height="28" role="img" aria-label="Enrolment trend Q1 to Q4"><polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx={last[0]} cy={last[1]} r="3" fill={c} /></svg>;
 }
 
-const STATUS = {
-  zero: { label: 'Zero Q4', cls: 'is-zero' },
-  drop: { label: 'Sharp decline', cls: 'is-drop' },
-  down: { label: 'Declining', cls: 'is-down' },
-  flat: { label: 'Stable', cls: 'is-flat' },
-  up: { label: 'Growing', cls: 'is-up' },
-  na: { label: 'No data', cls: 'is-na' },
-};
-export function recStatus(r) {
-  const q1 = num(r.q1), q4 = num(r.q4);
-  if (q4 === 0) return 'zero';
-  if (q1 === null || q4 === null) return 'na';
-  if (q1 > 0 && (q4 - q1) / q1 <= -0.2) return 'drop';
-  if (q4 < q1) return 'down';
-  if (q4 > q1) return 'up';
-  return 'flat';
-}
-
 export function RecWiseView({ records }) {
-  const [statusFilter, setStatusFilter] = useState('');
   const [sort, setSort] = useState('default');
   const [limit, setLimit] = useState(50);
-  useEffect(() => setLimit(50), [records, statusFilter, sort]);
+  useEffect(() => setLimit(50), [records, sort]);
 
-  const decorated = useMemo(() => records.map((r) => ({ r, status: recStatus(r), change: num(r.q4) !== null && num(r.q1) !== null ? num(r.q4) - num(r.q1) : null })), [records]);
-  const counts = useMemo(() => decorated.reduce((a, d) => { a[d.status] = (a[d.status] || 0) + 1; return a; }, {}), [decorated]);
-  const chips = [['', 'All', decorated.length], ['zero', 'Zero Q4', counts.zero || 0], ['decline', 'Declining', (counts.down || 0) + (counts.drop || 0)], ['up', 'Growing', counts.up || 0], ['flat', 'Stable', counts.flat || 0]];
+  const decorated = useMemo(() => records.map((r) => ({ r, change: num(r.q4) !== null && num(r.q1) !== null ? num(r.q4) - num(r.q1) : null })), [records]);
   const visible = useMemo(() => {
-    let list = decorated.filter((d) => !statusFilter || (statusFilter === 'decline' ? d.status === 'down' || d.status === 'drop' : d.status === statusFilter));
+    let list = [...decorated];
     if (sort === 'decline') list = [...list].sort((a, b) => (a.change ?? 1e9) - (b.change ?? 1e9));
     else if (sort === 'q4') list = [...list].sort((a, b) => (num(b.r.q4) ?? -1) - (num(a.r.q4) ?? -1));
     else if (sort === 'name') list = [...list].sort((a, b) => String(a.r.recName).localeCompare(String(b.r.recName)));
     return list;
-  }, [decorated, statusFilter, sort]);
+  }, [decorated, sort]);
 
   const recCount = new Set(records.map((r) => r.recCode)).size;
   const q1 = sumOf(records, 'q1'), q4 = sumOf(records, 'q4');
@@ -88,7 +67,6 @@ export function RecWiseView({ records }) {
       <div><small>RECs</small><b>{recCount.toLocaleString()}</b><span>{records.length.toLocaleString()} REC and class records</span></div>
       <div><small>Q4 enrolment</small><b>{fmt(q4)}</b><span>Q1 was {fmt(q1)}</span></div>
       <div><small>Q4 vs Q1</small><b className={tone(q4 - q1)}>{q1 !== null && q4 !== null ? signed(q4 - q1) : '—'}</b><span>{q1 > 0 ? ((q4 - q1) / q1 * 100).toFixed(1) + '% change' : ''}</span></div>
-      <div><small>Declining records</small><b className={(counts.down || 0) + (counts.drop || 0) ? 'ra-neg' : ''}>{((counts.down || 0) + (counts.drop || 0)).toLocaleString()}</b><span>{(counts.zero || 0).toLocaleString()} with zero Q4</span></div>
     </div>
 
     {classes.length > 1 && <div className="ra-classes">{classes.map((x) => <div key={x.c}>
@@ -96,14 +74,12 @@ export function RecWiseView({ records }) {
     </div>)}</div>}
 
     <div className="ra-toolbar">
-      <div className="ev-chips" role="group" aria-label="Filter by status">{chips.map(([key, label, n]) => <button key={label} type="button" className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>{label} <i>{n.toLocaleString()}</i></button>)}</div>
       <label>Sort by <select value={sort} onChange={(e) => setSort(e.target.value)}><option value="default">Default order</option><option value="decline">Biggest decline (Q4 vs Q1)</option><option value="q4">Largest Q4 enrolment</option><option value="name">REC name</option></select></label>
     </div>
 
     <div className="ra-wrap"><table className="ra-table">
-      <thead><tr><th>REC</th><th>Class</th><th>2025 baseline</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q4 vs Q1</th><th>Q4 vs 2025</th><th>Trend</th><th>Status</th></tr></thead>
-      <tbody>{visible.slice(0, limit).map(({ r, status, change }, i) => {
-        const s = STATUS[status];
+      <thead><tr><th>REC</th><th>Class</th><th>2025 baseline</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q4 vs Q1</th><th>Q4 vs 2025</th><th>Trend</th></tr></thead>
+      <tbody>{visible.slice(0, limit).map(({ r, change }, i) => {
         return <tr key={r.recCode + '-' + r.classCode + '-' + i}>
           <th scope="row"><b>{r.recName}</b><small>{r.region} · {r.localBoard}{r.directoryMatch === false ? ' · not in REC directory' : ''}</small></th>
           <td><span className="ra-class">{r.className}</span></td>
@@ -113,12 +89,10 @@ export function RecWiseView({ records }) {
           <td className={'ra-var ' + tone(change)}>{withPct(change, num(r.q1))}</td>
           <td className={'ra-var ' + tone(num(r.q4Vs2025))}>{withPct(num(r.q4Vs2025), num(r.enrollment2025))}</td>
           <td><Spark values={[r.q1, r.q2, r.q3, r.q4]} /></td>
-          <td><span className={'ra-badge ' + s.cls}>{s.label}</span></td>
         </tr>;
       })}</tbody>
     </table></div>
-    {visible.length === 0 && <p className="ra-muted">No records with this status.</p>}
-    <p className="ra-foot">Showing {Math.min(limit, visible.length).toLocaleString()} of {visible.length.toLocaleString()} records. Sharp decline means Q4 is 20% or more below Q1.</p>
+    <p className="ra-foot">Showing {Math.min(limit, visible.length).toLocaleString()} of {visible.length.toLocaleString()} records. Negative values show a reduction in enrolment; formal red flags and follow-up are shown in Variance & Red Flags.</p>
     {visible.length > limit && <button type="button" className="show-more-access" onClick={() => setLimit((n) => n + 50)}>Show 50 more records</button>}
   </div>;
 }
