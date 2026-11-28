@@ -43,7 +43,7 @@ async function saveSession(user, env) {
     .bind(id(), user.id, await digest(token), now + SESSION_DAYS * 86400000, now).run();
   return token;
 }
-async function handleApi(request, env) {
+export async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
   if (request.method === "GET" && path === "/api/health") return json({ ok: true });
