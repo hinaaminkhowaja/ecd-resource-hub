@@ -25,7 +25,7 @@ const withPct = (change, base) => {
   const p = (change / base) * 100;
   return signed(change) + ` (${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p).toFixed(1)}%)`;
 };
-const tone = (v) => (num(v) === null || v === 0 ? '' : v < 0 ? 'ra-neg' : 'ra-pos');
+const tone = () => '';
 const sumOf = (rows, f) => { const v = rows.map((r) => num(r[f])).filter((x) => x !== null); return v.length ? v.reduce((a, x) => a + x, 0) : null; };
 
 function Spark({ values }) {
@@ -35,7 +35,7 @@ function Spark({ values }) {
   const lo = Math.min(...ok), hi = Math.max(...ok), span = hi - lo || 1;
   const pts = v.map((x, i) => (x === null ? null : [4 + i * 24, 24 - ((x - lo) / span) * 18])).filter(Boolean);
   const down = ok[ok.length - 1] < ok[0];
-  const c = down ? '#be322d' : '#246e48';
+  const c = down ? '#64748b' : '#246e48';
   const last = pts[pts.length - 1];
   return <svg viewBox="0 0 80 28" width="80" height="28" role="img" aria-label="Enrolment trend Q1 to Q4"><polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx={last[0]} cy={last[1]} r="3" fill={c} /></svg>;
 }
