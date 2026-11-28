@@ -264,3 +264,10 @@
 .access-class-matrix .access-achievement-row th{background:#e8f2ec!important;color:#244b36!important;font-weight:800!important}
 .access-class-matrix .access-achievement-row td{background:#f0f7f2!important;color:#17613c!important;font-weight:800!important}
 .access-class-matrix tbody tr:hover td,.access-class-matrix tbody tr:hover th{filter:brightness(.97)}
+
+/* Compact indicator matrix: keep the label column from dominating the table. */
+.access-class-matrix{width:100%;table-layout:fixed}
+.access-class-matrix th:first-child{width:29%;min-width:0;max-width:29%;white-space:normal;overflow-wrap:anywhere}
+.access-class-matrix td,.access-class-matrix th{padding:7px 6px;font-size:11px;overflow-wrap:anywhere}
+.access-class-matrix td{white-space:normal}
+@media(max-width:760px){.access-class-matrix th:first-child{width:34%;max-width:34%}.access-class-matrix td,.access-class-matrix th{padding:5px 3px;font-size:10px}}
