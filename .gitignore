@@ -7,3 +7,8 @@ dist/
 /data/receipt-store.json
 .DS_Store
 /data/access-issues.json
+
+/data/red-flag-reasons.json
+/data/users.json
+/data/sessions.json
+/data/*.tmp
