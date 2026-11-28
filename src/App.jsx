@@ -313,7 +313,7 @@ function App({ user, onLogout }) {
 
         {panel === 'classrooms' && <DataPanel title="Classroom Data" storageKey="ecd-resource-hub.classroom-data" showRecClassFilters sourceRecords={ibtidaClassroomRecords} accessRecords={accessEnrollmentData?.records || []} />}
         {panel === 'access' && <AccessEnrollmentPanel data={accessEnrollmentData} />}
-        {panel === 'redflags' && <RedFlagsView records={(accessEnrollmentData?.records || []).filter((record) => user?.role === 'ADMIN' || record.region === user?.region)} user={user} />}
+        {panel === 'redflags' && <RedFlagsView records={(accessEnrollmentData?.records || []).filter((record) => user?.role === 'ADMIN' || (user?.region === 'All' || record.region === user?.region))} user={user} />}
         {panel === 'users' && user?.role === 'ADMIN' && <AdminUsersView />}
 
         {panel === 'materials' && <section className="library-section panel-section">
