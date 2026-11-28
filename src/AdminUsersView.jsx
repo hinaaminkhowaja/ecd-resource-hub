@@ -43,12 +43,12 @@ export default function AdminUsersView() {
     <form className="admin-user-form" onSubmit={create}>
       <label>User email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="regional.user@example.com"/></label>
       <label>Assigned region<select value={region} onChange={e=>setRegion(e.target.value)}>{regions.map(r=><option key={r} value={r}>{r.replace(/_\d+$/,'')}</option>)}</select></label>
-      <label>Temporary password<input type="password" minLength={12} value={password} onChange={e=>setPassword(e.target.value)} required placeholder="At least 12 characters"/></label>
+      <label>Initial password<input type="password" minLength={12} value={password} onChange={e=>setPassword(e.target.value)} required placeholder="At least 12 characters"/></label>
       <button disabled={busy}><Plus size={16}/>{busy?'Creating…':'Create account'}</button>
     </form>
     {message&&<p className="admin-message" role="status">{message}</p>}
     <div className="admin-user-list"><h3>Assigned accounts</h3>
-      {users.length===0?<p className="admin-empty">No regional accounts have been created yet.</p>:users.map(user=><article key={user.id} className={!user.active?'inactive':''}><span className="admin-user-avatar"><UserRound size={17}/></span><div><b>{user.email}</b><small>{user.region?.replace(/_\d+$/,'')||'No region assigned'}</small></div><span className={'admin-user-status '+(user.active?'active':'')}>{user.active?'Active':'Inactive'}</span><button type="button" onClick={()=>toggle(user)} title={user.active?'Deactivate account':'Reactivate account'}><UserX size={16}/>{user.active?'Deactivate':'Reactivate'}</button></article>)}
+      {users.length===0?<p className="admin-empty">No regional accounts have been created yet.</p>:users.map(user=><article key={user.id} className={!user.active?'inactive':''}><span className="admin-user-avatar"><UserRound size={17}/></span><div><b>{user.email}</b><small>{user.region?.replace(/_\d+$/,'')||'No region assigned'}</small></div><select aria-label={'Assigned region for '+user.email} value={user.region||''} onChange={async e=>{const response=await fetch('/api/admin/users',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:user.id,region:e.target.value})});const data=await response.json();if(!response.ok){setMessage(data.error||'Could not change region.');return;}await load();setMessage('Region assignment updated.');}}>{regions.map(r=><option key={r} value={r}>{r.replace(/_\d+$/,'')}</option>)}</select><span className={'admin-user-status '+(user.active?'active':'')}>{user.active?'Active':'Inactive'}</span><button type="button" onClick={()=>toggle(user)} title={user.active?'Deactivate account':'Reactivate account'}><UserX size={16}/>{user.active?'Deactivate':'Reactivate'}</button></article>)}
     </div>
   </section>;
 }
