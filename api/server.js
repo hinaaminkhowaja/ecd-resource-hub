@@ -201,7 +201,7 @@ async function handle(request, response) {
     if (!user) return;
     if (request.method === 'GET') {
       const all = await readJsonFile(reasonsPath,{});
-      const reasons = user.role === 'ADMIN' ? all : Object.fromEntries(Object.entries(all).filter(([,reason]) => reason.region === user.region));
+      const reasons = user.role === 'ADMIN' || user.region === 'All' ? all : Object.fromEntries(Object.entries(all).filter(([,reason]) => reason.region === user.region));
       send(response,200,{reasons});
       return;
     }
@@ -211,9 +211,9 @@ async function handle(request, response) {
         const key = String(body.key || '').trim();
         const reason = body.reason;
         if (!key || !reason || !String(reason.reason || '').trim() || !String(reason.name || '').trim() || !String(reason.designation || '').trim()) { send(response,400,{error:'Complete the reason, name and designation.'}); return; }
-        if (user.role !== 'ADMIN' && reason.region !== user.region) { send(response,403,{error:'You can only save reasons for your assigned region.'}); return; }
+        if (user.role !== 'ADMIN' && user.region !== 'All' && reason.region !== user.region) { send(response,403,{error:'You can only save reasons for your assigned region.'}); return; }
         const reasons = await readJsonFile(reasonsPath,{});
-        reasons[key] = { ...reason, region:user.role === 'ADMIN' ? String(reason.region || '').trim() : user.region, submittedBy:user.email, updatedAt:new Date().toISOString() };
+        reasons[key] = { ...reason, region:user.role === 'ADMIN' || user.region === 'All' ? String(reason.region || '').trim() : user.region, submittedBy:user.email, updatedAt:new Date().toISOString() };
         await writeJsonFile(reasonsPath,reasons);
         send(response,200,{ok:true,reason:reasons[key]});
       } catch (error) { send(response,400,{error:error.message}); }
